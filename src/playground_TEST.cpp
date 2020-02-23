@@ -7,70 +7,63 @@
 
 using namespace testing;
 
+struct Box
+{
+    uint16_t width = 0;
+    uint16_t height = 0;
+};
+
 struct Object
 {
     uint32_t a = 0;
     uint8_t b = 0;
+    std::string c{"Hello"};
+    std::vector<uint16_t> d = {1, 2, 3, 4};
+    Box box;
+    std::vector<uint8_t> e = {1, 1, 1, 1, 1};
+    std::vector<std::string> f = {"a", "b"};
+
+    // double boxing. Inner vector should also be 16 bit prefixed,
+    // as well as the strings
+    // std::vector<std::vector<std::string>> f = {{"a", "b", "c"},
+    //                                            {"d", "e", "f"}};
 };
 
-// Codec specification for Object
+// layout specification for Object
 namespace codec
 {
-    // general codec. Should work with any encoder/decoder.
     template <class Codec>
-    void codec(Codec& codec, Object& object)
+    void layout(Codec& codec, ::Box& box)
     {
-        field(codec, object.a);
-        field(codec, object.b);
+        field(codec, box.width);
+        field(codec, box.height);
     }
 
-    // TODO: Possible specializations. For example for json encoding.
-    template <>
-    void codec(Json_Codec& codec, Object& object)
+    // general layout. Should work with any encoder/decoder.
+    template <class Codec>
+    void layout(Codec& codec, Object& object)
     {
+        using namespace codec::binary;
+
         field(codec, object.a);
         field(codec, object.b);
+        field(codec, object.c);
+        field(codec, object.d);
+        field(codec, object.box);
+        field(codec, L_16<std::vector<uint8_t>>(object.e));
+        field(codec, L_16<L_16<std::vector<std::string>>>(object.f));
+        // field(codec, object.f, L_16<L_16<L_16<std::string>>>());
     }
 }
 
-// class Test_Codec
-// {
-// };
-
-// // Define field entries for the Test_Codec
-// namespace codec
-// {
-//     void field(Test_Codec& codec, uint8_t& value) { printf("uint8_t
-//     field\n"); }
-
-//     void field(Test_Codec& codec, uint32_t& value)
-//     {
-//         printf("uint32_t field\n");
-//     }
-// }
-
-// // Define a codec function for the Object struct
-// namespace codec
-// {
-//     template <class Codec>
-//     void codec(Codec& codec, Object& object)
-//     {
-//         printf("Using defined codec function for Object\n");
-
-//         field(codec, object.a);
-//         field(codec, object.b);
-//     }
-// }
-
 TEST(playground, usage)
 {
-    // Object object;
-    // Test_Codec codec;
-
-    // codec::codec(codec, object);
-
     Object object;
-    codec::Binary_Encode codec;
+    auto& c = codec::codec<codec::binary::Encode>(object);
 
-    codec::codec(codec, object);
+    printf("Size of encoded: %d\n", c.data.size());
+
+    for (auto& e : c.data)
+        printf("%x, ", (uint8_t)e);
+    printf("\n");
 }
