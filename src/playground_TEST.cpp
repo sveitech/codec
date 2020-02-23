@@ -15,18 +15,11 @@ struct Box
 
 struct Object
 {
-    uint32_t a = 0;
-    uint8_t b = 0;
+    uint32_t a = 0xaabbccdd;
+    uint8_t b = 0xff;
     std::string c{"Hello"};
-    std::vector<uint16_t> d = {1, 2, 3, 4};
-    Box box;
-    std::vector<uint8_t> e = {1, 1, 1, 1, 1};
-    std::vector<std::string> f = {"a", "b"};
-
-    // double boxing. Inner vector should also be 16 bit prefixed,
-    // as well as the strings
-    // std::vector<std::vector<std::string>> f = {{"a", "b", "c"},
-    //                                            {"d", "e", "f"}};
+    std::string d{"Hello"};
+    std::vector<std::string> e = {"a", "b", "c"};
 };
 
 // layout specification for Object
@@ -49,10 +42,21 @@ namespace codec
         field(codec, object.b);
         field(codec, object.c);
         field(codec, object.d);
-        field(codec, object.box);
-        field(codec, L_16<std::vector<uint8_t>>(object.e));
-        field(codec, L_16<L_16<std::vector<std::string>>>(object.f));
-        // field(codec, object.f, L_16<L_16<L_16<std::string>>>());
+        field(codec, object.e);
+        // field(codec, object.d);
+        // field(codec, object.box);
+        // field(codec, object.e);
+        // field(codec, object.f);
+    }
+
+    template <class Codec>
+    void layout_meta(Codec& codec, Object& object)
+    {
+        meta(codec, object.c, {binary::L16});
+        meta(codec, object.d, {binary::L32});
+
+        // Apply 16 bit length to both the outer vector and the inner strings
+        meta(codec, object.e, {binary::L16, binary::L32});
     }
 }
 

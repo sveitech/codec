@@ -10,17 +10,15 @@ namespace codec
         virtual void reset() = 0;
     };
 
-    template <class T>
-    struct Box
-    {
-        Box(T& r) : ref(r) {}
-        T& ref;
-    };
-
     // Default layout function. Specialize to create layout functions
     // for each custom object.
     template <class Codec, class Object>
     void layout(Codec& codec, Object& object)
+    {
+    }
+
+    template <class Codec, class Object>
+    void layout_meta(Codec& codec, Object& object)
     {
     }
 
@@ -31,11 +29,17 @@ namespace codec
     {
     }
 
+    template <class Codec, class Type>
+    void meta(Codec& codec, Type& type)
+    {
+    }
+
     template <class Codec, class Object>
     Codec& codec(Object& object)
     {
         static Codec codec;
         codec.reset();
+        layout_meta(codec, object);
         layout(codec, object);
         return codec;
     }

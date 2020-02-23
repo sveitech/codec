@@ -2,6 +2,7 @@
 #define CODEC_BINARY_CODEC_HPP
 
 #include <cstdint>
+#include <unordered_map>
 #include <vector>
 
 #include "codec.hpp"
@@ -10,18 +11,14 @@ namespace codec
 {
     namespace binary
     {
-        // Field uses a 16 bit length prefix. Use this with
-        // std::vector and std::string
-        template <class T>
-        struct L_16 : codec::Box<T>
+        enum Meta
         {
-            L_16(T& r) : codec::Box<T>(r) {}
-        };
-
-        // Field uses a 0-bit length field (None). Use this with
-        // std::vector and std::string.
-        struct L_0
-        {
+            L0,
+            L8,
+            L16,
+            L24,
+            L32,
+            DEFAULT
         };
 
         class Encode : public Codec
@@ -29,6 +26,9 @@ namespace codec
         public:
             void reset() override { data.clear(); }
             std::vector<uint8_t> data;
+
+            std::unordered_map<intptr_t, std::vector<Meta>> meta;
+            intptr_t meta_field = 0;
         };
 
         class Decode
@@ -36,6 +36,30 @@ namespace codec
         public:
         private:
         };
+    }
+
+    template <class T>
+    void length(binary::Encode& codec, T& value, bool pop = false);
+
+    binary::Meta get_meta(binary::Encode& codec,
+                          intptr_t value,
+                          bool pop = false)
+    {
+        // Find meta info
+        auto it = codec.meta.find(value);
+
+        if (it != codec.meta.end())
+        {
+            if (it->second.size() > 0)
+            {
+                binary::Meta m = it->second[0];
+                if (pop)
+                    it->second.erase(it->second.begin());
+                return m;
+            }
+        }
+
+        return binary::Meta::DEFAULT;
     }
 
     // Field definitions
@@ -70,12 +94,12 @@ namespace codec
         codec.data.push_back((value >> 24) & 0xFF);
     }
 
-    // By default, use 1 byte to encode length field
     template <>
     void field(binary::Encode& codec, std::string& value)
     {
-        uint8_t size = value.size();
-        field(codec, size);
+        printf("==== Encoding string. Metafield: %ul\n", codec.meta_field);
+        // Length field is determined by meta-data
+        length(codec, value, false);
 
         for (size_t i = 0; i < value.size(); i++)
             codec.data.push_back(value[i]);
@@ -85,32 +109,60 @@ namespace codec
     template <class T>
     void field(binary::Encode& codec, std::vector<T>& value)
     {
-        uint8_t size = value.size();
-        field(codec, size);
+        printf("== Encoding vector: %ul\n", (intptr_t)&value);
+        // Length field is determined by meta-data
+        length(codec, value, true);
+        codec.meta_field = (intptr_t)&value;
 
         for (auto& i : value)
             field(codec, i);
+
+        codec.meta_field = 0;
     }
 
-    // template <class T, class B>
-    // void field(binary::Encode& codec, T& value, binary::L_16<B>&& boxed)
-    // {
-    //     uint16_t size = value.size();
-    //     field(codec, size);
+    // Meta declarations
 
-    //     for (auto& field : value)
-    //         field(codec, field, B());
-    // }
-
-    // Custom length encoders
     template <class T>
-    void field(binary::Encode& codec, binary::L_16<T>&& boxed)
+    void meta(binary::Encode& codec,
+              T const& value,
+              std::vector<binary::Meta> const& meta_data)
     {
-        uint16_t size = boxed.ref.size();
-        field(codec, size);
+        codec.meta[(intptr_t)&value] = meta_data;
+    }
 
-        for (auto& i : boxed.ref)
-            field(codec, i);
+    // NOTE! The position of this funtion is important! It MUST come after
+    // the field specializations, otherwise it picks up the generic
+    // field template.
+    template <class T>
+    void length(binary::Encode& codec, T& value, bool pop)
+    {
+        intptr_t meta_field = (intptr_t)&value;
+
+        if (codec.meta_field != 0)
+            meta_field = codec.meta_field;
+
+        switch (get_meta(codec, meta_field, pop))
+        {
+            case binary::L16:
+            {
+                printf("Found L16\n");
+                uint16_t length = value.size();
+                field(codec, length);
+                break;
+            }
+            case binary::L32:
+            {
+                printf("Found L32\n");
+                uint32_t length = value.size();
+                field(codec, length);
+                break;
+            }
+            default:
+            {
+                printf("None found\n");
+                break;
+            }
+        }
     }
 }
 
