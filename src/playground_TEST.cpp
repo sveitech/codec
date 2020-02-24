@@ -9,43 +9,45 @@
 
 using namespace testing;
 
-struct Box
-{
-    uint16_t width = 0;
-    uint16_t height = 0;
-};
+// struct Box
+// {
+//     uint16_t width = 0;
+//     uint16_t height = 0;
+// };
 
-struct Bar
-{
-    uint32_t a = 100;
-};
+// struct Bar
+// {
+//     uint32_t a = 100;
+//     std::string b = "Hello";
+// };
 
 struct Object
 {
     uint32_t a = 0xaabbccdd;
     uint8_t b = 0xff;
-    std::string c{"Hello"};
-    std::string d{"Hello"};
-    std::vector<std::string> e = {"a", "b", "c"};
-    Box box;
-    Bar bar;
+    // std::string c{"Hello"};
+    // std::string d{"Hello"};
+    // std::vector<std::string> e = {"a", "b", "c"};
+    // Box box;
+    // Bar bar;
 };
 
 // layout specification for Object
 namespace codec
 {
-    template <class Codec>
-    void layout(Codec& codec, ::Bar& bar)
-    {
-        field(codec, bar.a);
-    }
+    // template <class Codec>
+    // void layout(Codec& codec, ::Bar& bar)
+    // {
+    //     field(codec, bar.a);
+    //     field(codec, bar.b);
+    // }
 
-    template <class Codec>
-    void layout(Codec& codec, ::Box& box)
-    {
-        field(codec, box.width);
-        field(codec, box.height);
-    }
+    // template <class Codec>
+    // void layout(Codec& codec, ::Box& box)
+    // {
+    //     field(codec, box.width);
+    //     field(codec, box.height);
+    // }
 
     template <
         class Codec,
@@ -57,28 +59,22 @@ namespace codec
 
         field(codec, object.a);
         field(codec, object.b);
-        field(codec, object.c, {binary::L16});
-        field(codec, object.d);
-        field(codec, object.e, {binary::L16, binary::L32});
-        field(codec, object.box);
-        field(codec, object.bar);
+        // field(codec, object.c, {binary::L16});
+        // field(codec, object.d);
+        // field(codec, object.e, {binary::L16, binary::L32});
+        // field(codec, object.box);
+        // field(codec, object.bar);
     }
 
-    // Create specialization for the Bar type
-    template <>
-    void field(binary::Encode& codec, Bar& value)
-    {
-        printf("Encoding BAR\n");
-    }
-
-    template <class Codec,
-              typename std::enable_if<std::is_same<Codec, json::Encode>::value,
-                                      int>::type = 0>
-    void layout(Codec& codec, Object& object)
-    {
-        field(codec, object.a, "a");
-        field(codec, object.b, "b");
-    }
+    // template <class Codec,
+    //           typename std::enable_if<std::is_same<Codec,
+    //           json::Encode>::value,
+    //                                   int>::type = 0>
+    // void layout(Codec& codec, Object& object)
+    // {
+    //     field(codec, object.a, "a");
+    //     field(codec, object.b, "b");
+    // }
 }
 
 TEST(playground, encode_binary)
@@ -95,6 +91,6 @@ TEST(playground, encode_binary)
 
 TEST(playground, encode_json)
 {
-    Object object;
-    auto& c = codec::codec<codec::json::Encode>(object);
+    // Object object;
+    // auto& c = codec::codec<codec::json::Encode>(object);
 }

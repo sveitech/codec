@@ -20,8 +20,8 @@ BraceWrapping:
     AfterUnion: true
     BeforeCatch: true
     BeforeElse: true
-    SplitEmptyRecord: true
-    SplitEmptyFunction: true
+    SplitEmptyRecord: false
+    SplitEmptyFunction: false
 IndentCaseLabels: true
 PenaltyReturnTypeOnItsOwnLine: 10000
 AlwaysBreakAfterReturnType: None

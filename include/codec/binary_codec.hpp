@@ -11,7 +11,7 @@ namespace codec
 {
     namespace binary
     {
-        enum Meta
+        enum Prefix_Type
         {
             L0,
             L8,
@@ -26,18 +26,75 @@ namespace codec
             std::vector<uint8_t> data;
         };
 
-        class Decode
+        class Decode : public Codec
         {
         public:
-        private:
+            Decode(std::vector<uint8_t> const& data) : data(data), index(0) {}
+            void reset() override {}
+
+            std::vector<uint8_t> data;
+            size_t index = 0;
         };
+
+        //
+        // field() definitions
+        //
+
+        // general case. Catch custom structs
+        template <class T>
+        void field(Encode& c, T& value)
+        {
+            layout(c, value);
+        }
+
+        template <class T>
+        void field(Decode& c, T& value)
+        {
+            layout(c, value);
+        }
+
+        //
+        // uint8_t
+        //
+        void field(Encode& c, uint8_t& value)
+        {
+            c.data.push_back(value & 0xFF);
+        }
+
+        void field(Decode& c, uint8_t& value)
+        {
+            value = c.data.back();
+            c.data.pop_back();
+        }
+
+        //
+        // uint32_t
+        //
+        void field(Encode& c, uint32_t& value)
+        {
+            c.data.push_back((value >> 0) & 0xFF);
+            c.data.push_back((value >> 8) & 0xFF);
+            c.data.push_back((value >> 16) & 0xFF);
+            c.data.push_back((value >> 24) & 0xFF);
+        }
+
+        void field(Decode& c, uint32_t& value)
+        {
+            value = c.data.back();
+            c.data.pop_back();
+            value += c.data.back() << 8;
+            c.data.pop_back();
+        }
     }
+}
 
-    // Allow further specializations for field, in user code.
-    template <class Codec, class Type>
-    void field(Codec& codec, Type& type);
+/*
+    template <class T>
+    void field(binary::Encode& codec, T& value);
 
-    void length(binary::Encode& codec, size_t value, binary::Meta meta_data);
+    void length(binary::Encode& codec,
+                size_t value,
+                binary::Prefix_Type meta_data);
 
     // Field definitions
     // Unknown structs. Invoke their layout functions.
@@ -73,7 +130,7 @@ namespace codec
 
     void field(binary::Encode& codec,
                std::string& value,
-               std::vector<binary::Meta> const& meta = {})
+               std::vector<binary::Prefix_Type> const& meta = {})
     {
         if (meta.size() > 0)
             length(codec, value.size(), meta[0]);
@@ -87,7 +144,7 @@ namespace codec
     template <class T>
     void field(binary::Encode& codec,
                std::vector<T>& value,
-               std::vector<binary::Meta> const& meta = {})
+               std::vector<binary::Prefix_Type> const& meta = {})
     {
         if (meta.size() > 0)
             length(codec, value.size(), meta[0]);
@@ -100,7 +157,8 @@ namespace codec
             {
                 field(codec,
                       i,
-                      std::vector<binary::Meta>(meta.begin() + 1, meta.end()));
+                      std::vector<binary::Prefix_Type>(meta.begin() + 1,
+                                                       meta.end()));
             }
             else
             {
@@ -112,7 +170,9 @@ namespace codec
     // NOTE! The position of this funtion is important! It MUST come after
     // the field specializations, otherwise it picks up the generic
     // field template.
-    void length(binary::Encode& codec, size_t value, binary::Meta meta_data)
+    void length(binary::Encode& codec,
+                size_t value,
+                binary::Prefix_Type meta_data)
     {
         switch (meta_data)
         {
@@ -137,5 +197,20 @@ namespace codec
         }
     }
 }
+
+template <class T>
+void codec::binary::Encode::field(T& value)
+{
+    printf("struct field\n");
+    layout(*this, value);
+}
+
+void codec::binary::Encode::field(uint8_t& value) { printf("uint8_t field\n"); }
+
+void codec::binary::Encode::field(uint32_t& value)
+{
+    printf("uint32_t field\n");
+}
+*/
 
 #endif
