@@ -16,9 +16,7 @@ namespace codec
             L0,
             L8,
             L16,
-            L24,
-            L32,
-            DEFAULT
+            L32
         };
 
         class Encode : public Codec
@@ -26,8 +24,6 @@ namespace codec
         public:
             void reset() override { data.clear(); }
             std::vector<uint8_t> data;
-
-            Meta_Base<Meta> meta;
         };
 
         class Decode
@@ -37,11 +33,9 @@ namespace codec
         };
     }
 
-    template <>
-    binary::Meta default_meta()
-    {
-        return binary::Meta::L0;
-    }
+    // Allow further specializations for field, in user code.
+    template <class Codec, class Type>
+    void field(Codec& codec, Type& type);
 
     void length(binary::Encode& codec, size_t value, binary::Meta meta_data);
 
@@ -77,47 +71,42 @@ namespace codec
         codec.data.push_back((value >> 24) & 0xFF);
     }
 
-    template <>
-    void field(binary::Encode& codec, std::string& value)
+    void field(binary::Encode& codec,
+               std::string& value,
+               std::vector<binary::Meta> const& meta = {})
     {
-        codec.meta.push_member(value);
-        auto meta = codec.meta.pop();
-        length(codec, value.size(), meta);
-        codec.meta.rollback();
-        codec.meta.pop_member(value);
+        if (meta.size() > 0)
+            length(codec, value.size(), meta[0]);
+        else
+            length(codec, value.size(), binary::L8);
 
         for (size_t i = 0; i < value.size(); i++)
             codec.data.push_back(value[i]);
     }
 
-    // By default, use 1 byte to encode length field
     template <class T>
-    void field(binary::Encode& codec, std::vector<T>& value)
+    void field(binary::Encode& codec,
+               std::vector<T>& value,
+               std::vector<binary::Meta> const& meta = {})
     {
-        codec.meta.push_member(value);
-        auto meta = codec.meta.pop();
-        length(codec, value.size(), meta);
+        if (meta.size() > 0)
+            length(codec, value.size(), meta[0]);
+        else
+            length(codec, value.size(), binary::L8);
 
         for (auto& i : value)
-            field(codec, i);
-
-        codec.meta.rollback();
-        codec.meta.pop_member(value);
-    }
-
-    // Meta declarations
-    template <class T>
-    void meta(binary::Encode& codec, T const& value, binary::Meta meta_data)
-    {
-        codec.meta.set(value, meta_data);
-    }
-
-    template <class T>
-    void meta(binary::Encode& codec,
-              T const& value,
-              std::vector<binary::Meta> const& meta_data)
-    {
-        codec.meta.set(value, meta_data);
+        {
+            if (meta.size() > 1)
+            {
+                field(codec,
+                      i,
+                      std::vector<binary::Meta>(meta.begin() + 1, meta.end()));
+            }
+            else
+            {
+                field(codec, i);
+            }
+        }
     }
 
     // NOTE! The position of this funtion is important! It MUST come after
@@ -127,6 +116,12 @@ namespace codec
     {
         switch (meta_data)
         {
+            case binary::L8:
+            {
+                uint8_t length = value;
+                field(codec, length);
+                break;
+            }
             case binary::L16:
             {
                 uint16_t length = value;

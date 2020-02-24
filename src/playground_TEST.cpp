@@ -2,8 +2,10 @@
 #include <cstdint>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include <type_traits>
 
 #include "codec/binary_codec.hpp"
+#include "codec/json_codec.hpp"
 
 using namespace testing;
 
@@ -13,6 +15,11 @@ struct Box
     uint16_t height = 0;
 };
 
+struct Bar
+{
+    uint32_t a = 100;
+};
+
 struct Object
 {
     uint32_t a = 0xaabbccdd;
@@ -20,11 +27,19 @@ struct Object
     std::string c{"Hello"};
     std::string d{"Hello"};
     std::vector<std::string> e = {"a", "b", "c"};
+    Box box;
+    Bar bar;
 };
 
 // layout specification for Object
 namespace codec
 {
+    template <class Codec>
+    void layout(Codec& codec, ::Bar& bar)
+    {
+        field(codec, bar.a);
+    }
+
     template <class Codec>
     void layout(Codec& codec, ::Box& box)
     {
@@ -32,35 +47,41 @@ namespace codec
         field(codec, box.height);
     }
 
-    // general layout. Should work with any encoder/decoder.
-    template <class Codec>
+    template <
+        class Codec,
+        typename std::enable_if<std::is_same<Codec, binary::Encode>::value,
+                                int>::type = 0>
     void layout(Codec& codec, Object& object)
     {
         using namespace codec::binary;
 
         field(codec, object.a);
         field(codec, object.b);
-        field(codec, object.c);
+        field(codec, object.c, {binary::L16});
         field(codec, object.d);
-        field(codec, object.e);
-        // field(codec, object.d);
-        // field(codec, object.box);
-        // field(codec, object.e);
-        // field(codec, object.f);
+        field(codec, object.e, {binary::L16, binary::L32});
+        field(codec, object.box);
+        field(codec, object.bar);
     }
 
-    template <class Codec>
-    void layout_meta(Codec& codec, Object& object)
+    // Create specialization for the Bar type
+    template <>
+    void field(binary::Encode& codec, Bar& value)
     {
-        meta(codec, object.c, binary::L16);
-        meta(codec, object.d, binary::L32);
+        printf("Encoding BAR\n");
+    }
 
-        // Apply 16 bit length to both the outer vector and the inner strings
-        meta(codec, object.e, {binary::L16, binary::L32});
+    template <class Codec,
+              typename std::enable_if<std::is_same<Codec, json::Encode>::value,
+                                      int>::type = 0>
+    void layout(Codec& codec, Object& object)
+    {
+        field(codec, object.a, "a");
+        field(codec, object.b, "b");
     }
 }
 
-TEST(playground, usage)
+TEST(playground, encode_binary)
 {
     Object object;
     auto& c = codec::codec<codec::binary::Encode>(object);
@@ -72,46 +93,8 @@ TEST(playground, usage)
     printf("\n");
 }
 
-enum class Demo_Meta
+TEST(playground, encode_json)
 {
-    A,
-    B,
-    C
-};
-
-namespace codec
-{
-    template <>
-    Demo_Meta default_meta()
-    {
-        return Demo_Meta::A;
-    }
-}
-
-TEST(playground, meta)
-{
-    codec::Meta_Base<Demo_Meta> meta;
-    uint32_t member;
-
-    meta.set(member, {Demo_Meta::A, Demo_Meta::B, Demo_Meta::C});
-
-    meta.push_member(member);
-    ASSERT_EQ(Demo_Meta::A, meta.pop());
-    ASSERT_EQ(Demo_Meta::B, meta.pop());
-    ASSERT_EQ(Demo_Meta::C, meta.pop());
-    meta.pop_member(member);
-
-    // ASSERT_EQ(Demo_Meta::A, meta.pop(member));
-    // ASSERT_EQ(Demo_Meta::B, meta.pop(member));
-    // ASSERT_EQ(Demo_Meta::C, meta.pop(member));
-
-    // meta.rollback(member);
-
-    // ASSERT_EQ(Demo_Meta::C, meta.pop(member));
-
-    // meta.rollback(member);
-    // meta.rollback(member);
-    // meta.rollback(member);
-
-    // ASSERT_EQ(Demo_Meta::A, meta.pop(member));
+    Object object;
+    auto& c = codec::codec<codec::json::Encode>(object);
 }
