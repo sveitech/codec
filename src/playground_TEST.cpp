@@ -52,8 +52,8 @@ namespace codec
     template <class Codec>
     void layout_meta(Codec& codec, Object& object)
     {
-        meta(codec, object.c, {binary::L16});
-        meta(codec, object.d, {binary::L32});
+        meta(codec, object.c, binary::L16);
+        meta(codec, object.d, binary::L32);
 
         // Apply 16 bit length to both the outer vector and the inner strings
         meta(codec, object.e, {binary::L16, binary::L32});
@@ -70,4 +70,48 @@ TEST(playground, usage)
     for (auto& e : c.data)
         printf("%x, ", (uint8_t)e);
     printf("\n");
+}
+
+enum class Demo_Meta
+{
+    A,
+    B,
+    C
+};
+
+namespace codec
+{
+    template <>
+    Demo_Meta default_meta()
+    {
+        return Demo_Meta::A;
+    }
+}
+
+TEST(playground, meta)
+{
+    codec::Meta_Base<Demo_Meta> meta;
+    uint32_t member;
+
+    meta.set(member, {Demo_Meta::A, Demo_Meta::B, Demo_Meta::C});
+
+    meta.push_member(member);
+    ASSERT_EQ(Demo_Meta::A, meta.pop());
+    ASSERT_EQ(Demo_Meta::B, meta.pop());
+    ASSERT_EQ(Demo_Meta::C, meta.pop());
+    meta.pop_member(member);
+
+    // ASSERT_EQ(Demo_Meta::A, meta.pop(member));
+    // ASSERT_EQ(Demo_Meta::B, meta.pop(member));
+    // ASSERT_EQ(Demo_Meta::C, meta.pop(member));
+
+    // meta.rollback(member);
+
+    // ASSERT_EQ(Demo_Meta::C, meta.pop(member));
+
+    // meta.rollback(member);
+    // meta.rollback(member);
+    // meta.rollback(member);
+
+    // ASSERT_EQ(Demo_Meta::A, meta.pop(member));
 }

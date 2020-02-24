@@ -27,8 +27,7 @@ namespace codec
             void reset() override { data.clear(); }
             std::vector<uint8_t> data;
 
-            std::unordered_map<intptr_t, std::vector<Meta>> meta;
-            intptr_t meta_field = 0;
+            Meta_Base<Meta> meta;
         };
 
         class Decode
@@ -38,29 +37,13 @@ namespace codec
         };
     }
 
-    template <class T>
-    void length(binary::Encode& codec, T& value, bool pop = false);
-
-    binary::Meta get_meta(binary::Encode& codec,
-                          intptr_t value,
-                          bool pop = false)
+    template <>
+    binary::Meta default_meta()
     {
-        // Find meta info
-        auto it = codec.meta.find(value);
-
-        if (it != codec.meta.end())
-        {
-            if (it->second.size() > 0)
-            {
-                binary::Meta m = it->second[0];
-                if (pop)
-                    it->second.erase(it->second.begin());
-                return m;
-            }
-        }
-
-        return binary::Meta::DEFAULT;
+        return binary::Meta::L0;
     }
+
+    void length(binary::Encode& codec, size_t value, binary::Meta meta_data);
 
     // Field definitions
     // Unknown structs. Invoke their layout functions.
@@ -97,9 +80,11 @@ namespace codec
     template <>
     void field(binary::Encode& codec, std::string& value)
     {
-        printf("==== Encoding string. Metafield: %ul\n", codec.meta_field);
-        // Length field is determined by meta-data
-        length(codec, value, false);
+        codec.meta.push_member(value);
+        auto meta = codec.meta.pop();
+        length(codec, value.size(), meta);
+        codec.meta.rollback();
+        codec.meta.pop_member(value);
 
         for (size_t i = 0; i < value.size(); i++)
             codec.data.push_back(value[i]);
@@ -109,57 +94,49 @@ namespace codec
     template <class T>
     void field(binary::Encode& codec, std::vector<T>& value)
     {
-        printf("== Encoding vector: %ul\n", (intptr_t)&value);
-        // Length field is determined by meta-data
-        length(codec, value, true);
-        codec.meta_field = (intptr_t)&value;
+        codec.meta.push_member(value);
+        auto meta = codec.meta.pop();
+        length(codec, value.size(), meta);
 
         for (auto& i : value)
             field(codec, i);
 
-        codec.meta_field = 0;
+        codec.meta.rollback();
+        codec.meta.pop_member(value);
     }
 
     // Meta declarations
+    template <class T>
+    void meta(binary::Encode& codec, T const& value, binary::Meta meta_data)
+    {
+        codec.meta.set(value, meta_data);
+    }
 
     template <class T>
     void meta(binary::Encode& codec,
               T const& value,
               std::vector<binary::Meta> const& meta_data)
     {
-        codec.meta[(intptr_t)&value] = meta_data;
+        codec.meta.set(value, meta_data);
     }
 
     // NOTE! The position of this funtion is important! It MUST come after
     // the field specializations, otherwise it picks up the generic
     // field template.
-    template <class T>
-    void length(binary::Encode& codec, T& value, bool pop)
+    void length(binary::Encode& codec, size_t value, binary::Meta meta_data)
     {
-        intptr_t meta_field = (intptr_t)&value;
-
-        if (codec.meta_field != 0)
-            meta_field = codec.meta_field;
-
-        switch (get_meta(codec, meta_field, pop))
+        switch (meta_data)
         {
             case binary::L16:
             {
-                printf("Found L16\n");
-                uint16_t length = value.size();
+                uint16_t length = value;
                 field(codec, length);
                 break;
             }
             case binary::L32:
             {
-                printf("Found L32\n");
-                uint32_t length = value.size();
+                uint32_t length = value;
                 field(codec, length);
-                break;
-            }
-            default:
-            {
-                printf("None found\n");
                 break;
             }
         }
