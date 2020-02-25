@@ -129,3 +129,64 @@ TEST(codec, every_type)
     // ASSERT_EQ(100, restored_object.box.width);
     // ASSERT_EQ(200, restored_object.box.height);
 }
+
+namespace ns
+{
+    template <class T, class O>
+    void tf(T& value, O& o)
+    {
+        printf("dummy tf\n");
+    }
+}
+
+template <class T, class O>
+void foo(T& value, O& o)
+{
+    ns::tf(value, o);
+}
+
+template <class O>
+void ns::tf<uint32_t, O>(uint32_t& value, O& o)
+{
+    printf("uint32_t specialization\n");
+}
+
+TEST(codec, adl_no_work)
+{
+    uint32_t a = 100;
+    std::string b = "hej";
+    foo(a, b);
+}
+
+// namespace ns_2
+// {
+//     template <class T>
+//     void tf(T& value)
+//     {
+//         printf("dummy tf\n");
+//     }
+// }
+
+// namespace ns_2
+// {
+//     namespace other
+//     {
+//         template <class T>
+//         void foo(T& value)
+//         {
+//             ns::tf(value);
+//         }
+//     }
+// }
+
+// template <class T>
+// void ns_2::tf(uint32_t& value)
+// {
+//     printf("uint32_t specialization\n");
+// }
+
+// TEST(codec, adl_work)
+// {
+//     uint32_t a = 100;
+//     ns_2::other::foo(a);
+// }
