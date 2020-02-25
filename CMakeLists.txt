@@ -9,7 +9,6 @@ set(sources
 )
 
 set(test_sources
-	#src/playground_TEST.cpp
 	src/binary_codec_TEST.cpp
 )
 
