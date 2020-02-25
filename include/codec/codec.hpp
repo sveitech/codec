@@ -8,11 +8,17 @@
 
 namespace codec
 {
-    class Codec
+    class Meta_Object
     {
-    public:
-        virtual ~Codec() = default;
-        virtual void reset() = 0;
+        public:
+    };
+
+    class Meta
+    {
+        public:
+            Meta() {}
+            Meta(std::initializer_list<Meta_Object> init) {}
+
     };
 
     // Default layout function. Specialize to create layout functions
@@ -20,14 +26,8 @@ namespace codec
     template <class Codec, class Object>
     void layout(Codec& codec, Object& object);
 
-    template <class Codec, class Object>
-    Codec& codec(Object& object)
-    {
-        static Codec codec;
-        codec.reset();
-        layout(codec, object);
-        return codec;
-    }
+    template<class Codec, class Object>
+    void field(Codec& codec, Object& object, Meta& meta = {});
 }
 
 #endif

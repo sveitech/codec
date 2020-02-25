@@ -8,7 +8,8 @@ set(sources
 )
 
 set(test_sources
-	src/playground_TEST.cpp
+	#src/playground_TEST.cpp
+	src/binary_codec_TEST.cpp
 )
 
 add_executable(codec_test ${sources} ${test_sources})
