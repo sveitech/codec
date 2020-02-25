@@ -130,33 +130,38 @@ TEST(codec, every_type)
     // ASSERT_EQ(200, restored_object.box.height);
 }
 
-namespace ns
-{
-    template <class T, class O>
-    void tf(T& value, O& o)
-    {
-        printf("dummy tf\n");
-    }
-}
+// namespace ns
+// {
+//     template <class T, class O>
+//     void tf(T& value, O& o)
+//     {
+//         printf("dummy tf\n");
+//     }
+// }
 
-template <class T, class O>
-void foo(T& value, O& o)
-{
-    ns::tf(value, o);
-}
+// template <class T, class O>
+// void foo(T& value, O& o)
+// {
+//     ns::tf(value, o);
+// }
 
-template <class O>
-void ns::tf<uint32_t, O>(uint32_t& value, O& o)
-{
-    printf("uint32_t specialization\n");
-}
+// template <class O>
+// void ns::tf<uint32_t, O>(uint32_t& value, O& o)
+// {
+//     printf("uint32_t specialization\n");
+// }
 
-TEST(codec, adl_no_work)
-{
-    uint32_t a = 100;
-    std::string b = "hej";
-    foo(a, b);
-}
+// /**
+//  * Functions cannot be partially specialized. Instead, they
+//  * behave like overloads. This is why this function picks up
+//  * the dummy tf first, because tf is not a dependent name.
+//  */
+// TEST(codec, adl_no_work)
+// {
+//     uint32_t a = 100;
+//     std::string b = "hej";
+//     foo(a, b);
+// }
 
 // namespace ns_2
 // {
@@ -190,3 +195,68 @@ TEST(codec, adl_no_work)
 //     uint32_t a = 100;
 //     ns_2::other::foo(a);
 // }
+
+struct Functor
+{
+    Functor() {}
+
+    void operator()() { printf("Operator ()\n"); }
+};
+
+namespace codec
+{
+    template <class Codec, class Object>
+    struct Layout
+    {
+        void operator()(Codec& codec, Object& object)
+        {
+            printf("base Layout operator\n");
+        }
+    };
+}
+
+struct Some_Codec
+{
+
+};
+
+struct Person
+{};
+
+namespace codec
+{
+    template <class C, class O>
+    void codec(C& c, O& o)
+    {
+        codec::Layout<C, O> l;
+        l(c, o);
+    }
+}
+
+namespace codec
+{
+    template <class Codec>
+    struct Layout<Codec, Person>
+    {
+        void operator()(Codec& codec, Person& object)
+        {
+            printf("Person Layout operator\n");
+        }
+    };
+}
+
+TEST(codec, functors)
+{
+    // Functor f;
+    // f();
+
+    uint32_t T;
+    // std::string S;
+    // codec::Layout<uint32_t, std::string> l;
+    // l(T, S);
+
+    // codec::codec(T, S);
+
+    Person p;
+    codec::codec(T, p);
+}
