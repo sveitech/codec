@@ -91,8 +91,14 @@ namespace codec
 
             size_t index = 0;
         };
-    }
+    } // namespace binary
 
+    /**
+     * META Catchers.
+     *
+     * The binary codec collects any meta arguments in the field() method,
+     * which are of the type binary::Prefix_Type. All others are ignored.
+     */
     codec_define_meta(binary::Encoder, binary::Prefix_Type, {
         c.meta[(intptr_t)&object].push_back(meta);
     });
@@ -101,9 +107,12 @@ namespace codec
         c.meta[(intptr_t)&object].push_back(meta);
     });
 
-    // FIELDS
+    /**
+     * FIELD SPECIALIZATIONS
+     */
 
-    // Partial specialization for catching structs
+    // Partial specialization for catching user structs/classes, which have
+    // their own layout.
     template <class Object>
     struct Field<binary::Encoder, Object>
     {
@@ -122,6 +131,9 @@ namespace codec
         }
     };
 
+    /**
+     * PRIMITIVE FIELDS
+     */
     codec_define_field(binary::Encoder, uint8_t, {
         c.data.push_back(value & 0xFF);
     });
@@ -176,7 +188,9 @@ namespace codec
         value += ((uint64_t)c.data[c.index++] << 56);
     });
 
-    // STRING
+    /**
+     * STRING
+     */
     template <>
     struct Field<binary::Encoder, std::string>
     {
@@ -199,11 +213,15 @@ namespace codec
                       std::string& value,
                       std::vector<binary::Prefix_Type> meta)
         {
+            // Reroute from the 3-type Field specialization, to the normal
+            // 2-type version
             Field<binary::Encoder, std::string>::_(c, value, meta);
         }
     };
 
-    // VECTOR
+    /**
+     * VECTOR
+     */
     template <class T>
     struct Field<binary::Encoder, std::vector<T>>
     {
@@ -219,6 +237,10 @@ namespace codec
             {
                 if (meta.size() > 1)
                 {
+                    // The base Field template in codec.hpp catches this call,
+                    // except for the std::string and std::vector
+                    // specializations made here in this file. See the "Special
+                    // trick" comments.
                     Field<binary::Encoder,
                           T,
                           std::vector<binary::Prefix_Type>>::
@@ -245,6 +267,8 @@ namespace codec
                       std::vector<T>& value,
                       std::vector<binary::Prefix_Type> meta)
         {
+            // Reroute from the 3-type Field specialization, to the normal
+            // 2-type version
             Field<binary::Encoder, std::vector<T>>::_(c, value, meta);
         }
     };

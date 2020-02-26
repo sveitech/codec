@@ -1,6 +1,11 @@
 # codec
 C++ encoder/decoder. to/from structs to/from arbitrary data format (json, yaml, binary, ...)
 
+## Used Packages / Word of Thanks
+
+* Googletest framework. The very best in C++ unit testing and mocking.
+* Nlohmann JSON library. Clean, beautiful and easy to use.
+
 ## Mission Statement
 
 We want to take this example struct:

@@ -10,28 +10,19 @@ namespace codec
     template <class Codec, class Object>
     struct Layout
     {
-        static void _(Codec& codec, Object& object)
-        {
-            printf("Default Layout implementation\n");
-        }
+        static void _(Codec& codec, Object& object) {}
     };
 
     template <class Codec, class Object, class... Args>
     struct Field
     {
-        static void _(Codec& codec, Object& object, Args... args)
-        {
-            printf("Default Field implementation\n");
-        }
+        static void _(Codec& codec, Object& object, Args... args) {}
     };
 
     template <class Codec, class Object, class M>
     struct Meta
     {
-        static void _(Codec& codec, Object& object, M&& meta)
-        {
-            printf("Default meta implementation\n");
-        }
+        static void _(Codec& codec, Object& object, M&& meta) {}
     };
 
     template <class Codec, class Object, class M>
@@ -55,7 +46,6 @@ namespace codec
     template <class Codec, class Object, class... M>
     void field(Codec& codec, Object& object, M&&... meta)
     {
-        printf("field with meta\n");
         (register_meta(codec, object, std::forward<M>(meta)), ...);
         field(codec, object);
     }

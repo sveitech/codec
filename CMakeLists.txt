@@ -14,4 +14,7 @@ set(test_sources
 
 add_executable(codec_test ${sources} ${test_sources})
 target_link_libraries(codec_test gmock gtest_main)
-target_include_directories(codec_test PRIVATE include)
+target_include_directories(codec_test 
+	PRIVATE include
+	PRIVATE lib/json/include
+)
