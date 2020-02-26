@@ -61,7 +61,7 @@ namespace codec
     });
 }
 
-TEST(codec, usage)
+TEST(binary_codec, usage)
 {
     Box box;
     codec::binary::Encoder encoder;

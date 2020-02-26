@@ -25,6 +25,18 @@ namespace codec
         static void _(Codec& codec, Object& object, M&& meta) {}
     };
 
+    /**
+     * This specialization allows the meta (M) to be a string literal.
+     * It is cast to a std::string, which is easier to use further down, in
+     * the Codecs.
+     */
+    template <class Codec, class Object, std::size_t N>
+    void register_meta(Codec& codec, Object& object, const char (&string)[N])
+    {
+        Meta<Codec, Object, std::string>::_(
+            codec, object, std::forward<std::string>(std::string(string)));
+    }
+
     template <class Codec, class Object, class M>
     void register_meta(Codec& codec, Object& object, M&& meta)
     {
@@ -43,11 +55,28 @@ namespace codec
         Field<Codec, Object>::_(codec, object);
     }
 
+    /**
+     * Fold technique only available in C++17. Abandoning, and creating a
+     * C++11 compliant implementation instead.
+     */
+    /**
     template <class Codec, class Object, class... M>
     void field(Codec& codec, Object& object, M&&... meta)
     {
         (register_meta(codec, object, std::forward<M>(meta)), ...);
         field(codec, object);
+    }
+    */
+
+    /**
+     * C++11 compliant variadic argument unpacking technique, relying on
+     * recursion.
+     */
+    template <class Codec, class Object, class M1, class... M>
+    void field(Codec& codec, Object& object, M1&& meta_1, M&&... meta)
+    {
+        register_meta(codec, object, std::forward<M1>(meta_1));
+        field(codec, object, std::forward<M>(meta)...);
     }
 
 /**
