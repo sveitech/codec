@@ -30,7 +30,6 @@ namespace codec
                                  Object& object,
                                  std::vector<Prefix_Type> const& meta)
             {
-                printf("length. MEta size: %i\n", meta.size());
                 if (meta.size() > 0)
                 {
                     switch (meta[0])
@@ -38,6 +37,12 @@ namespace codec
                         case Prefix_Type::L8:
                         {
                             uint8_t length = object.size();
+                            ::codec::field(codec, length);
+                            return length;
+                        }
+                        case Prefix_Type::L16:
+                        {
+                            uint16_t length = object.size();
                             ::codec::field(codec, length);
                             return length;
                         }
@@ -60,14 +65,12 @@ namespace codec
                 Object& object,
                 std::vector<Prefix_Type> default_meta)
             {
-                printf("get meta for %u\n", (intptr_t)&object);
                 auto it = meta.find((intptr_t)&object);
 
                 if (it != meta.end())
                     return it->second;
                 else
                 {
-                    printf("not found.\n");
                     return default_meta;
                 }
             }
@@ -80,12 +83,21 @@ namespace codec
 
         struct Decoder : public Codec
         {
-            void reset(std::vector<uint8_t> const& data) { this->data = data; }
+            void reset(std::vector<uint8_t> const& data)
+            {
+                this->data = data;
+                index = 0;
+            }
+
+            size_t index = 0;
         };
     }
 
     codec_define_meta(binary::Encoder, binary::Prefix_Type, {
-        printf("Registering meta for: %u\n", (intptr_t)&object);
+        c.meta[(intptr_t)&object].push_back(meta);
+    });
+
+    codec_define_meta(binary::Decoder, binary::Prefix_Type, {
         c.meta[(intptr_t)&object].push_back(meta);
     });
 
@@ -101,8 +113,21 @@ namespace codec
         }
     };
 
+    template <class Object>
+    struct Field<binary::Decoder, Object>
+    {
+        static void _(binary::Decoder& c, Object& value)
+        {
+            ::codec::codec(c, value);
+        }
+    };
+
     codec_define_field(binary::Encoder, uint8_t, {
         c.data.push_back(value & 0xFF);
+    });
+
+    codec_define_field(binary::Decoder, uint8_t, {
+        value = c.data[c.index++] & 0xFF;
     });
 
     codec_define_field(binary::Encoder, uint16_t, {
@@ -110,11 +135,23 @@ namespace codec
         c.data.push_back((value >> 8) & 0xFF);
     });
 
+    codec_define_field(binary::Decoder, uint16_t, {
+        value = c.data[c.index++];
+        value += (c.data[c.index++] << 8);
+    });
+
     codec_define_field(binary::Encoder, uint32_t, {
         c.data.push_back((value >> 0) & 0xFF);
         c.data.push_back((value >> 8) & 0xFF);
         c.data.push_back((value >> 16) & 0xFF);
         c.data.push_back((value >> 24) & 0xFF);
+    });
+
+    codec_define_field(binary::Decoder, uint32_t, {
+        value = c.data[c.index++];
+        value += (c.data[c.index++] << 8);
+        value += (c.data[c.index++] << 16);
+        value += (c.data[c.index++] << 24);
     });
 
     codec_define_field(binary::Encoder, uint64_t, {
@@ -128,15 +165,41 @@ namespace codec
         c.data.push_back((value >> 56) & 0xFF);
     });
 
+    codec_define_field(binary::Decoder, uint64_t, {
+        value = c.data[c.index++];
+        value += (c.data[c.index++] << 8);
+        value += (c.data[c.index++] << 16);
+        value += (c.data[c.index++] << 24);
+        value += ((uint64_t)c.data[c.index++] << 32);
+        value += ((uint64_t)c.data[c.index++] << 40);
+        value += ((uint64_t)c.data[c.index++] << 48);
+        value += ((uint64_t)c.data[c.index++] << 56);
+    });
+
     // STRING
     template <>
     struct Field<binary::Encoder, std::string>
     {
-        static void _(binary::Encoder& c, std::string& value)
+        static void _(binary::Encoder& c,
+                      std::string& value,
+                      std::vector<binary::Prefix_Type> meta = {
+                          binary::Prefix_Type::L8})
         {
-            auto meta = c.get_meta(value, {binary::Prefix_Type::L8});
+            meta = c.get_meta(value, meta);
             binary::Codec::length(c, value, meta);
             c.data.insert(c.data.end(), value.begin(), value.end());
+        }
+    };
+
+    // Special trick for passing meta data around during vector processing.
+    template <>
+    struct Field<binary::Encoder, std::string, std::vector<binary::Prefix_Type>>
+    {
+        static void _(binary::Encoder& c,
+                      std::string& value,
+                      std::vector<binary::Prefix_Type> meta)
+        {
+            Field<binary::Encoder, std::string>::_(c, value, meta);
         }
     };
 
@@ -156,14 +219,33 @@ namespace codec
             {
                 if (meta.size() > 1)
                 {
-                    printf("===\n");
-                    
+                    Field<binary::Encoder,
+                          T,
+                          std::vector<binary::Prefix_Type>>::
+                        _(c,
+                          element,
+                          std::vector<binary::Prefix_Type>(meta.begin() + 1,
+                                                           meta.end()));
                 }
                 else
                 {
                     ::codec::field(c, element);
                 }
             }
+        }
+    };
+
+    // Special trick for passing meta data around during vector processing.
+    template <class T>
+    struct Field<binary::Encoder,
+                 std::vector<T>,
+                 std::vector<binary::Prefix_Type>>
+    {
+        static void _(binary::Encoder& c,
+                      std::vector<T>& value,
+                      std::vector<binary::Prefix_Type> meta)
+        {
+            Field<binary::Encoder, std::vector<T>>::_(c, value, meta);
         }
     };
 }

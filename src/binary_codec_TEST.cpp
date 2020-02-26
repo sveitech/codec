@@ -1,5 +1,6 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include <string>
 #include <type_traits>
 
 #include "codec/binary_codec.hpp"
@@ -23,6 +24,7 @@ struct Box
     Person person;
     std::vector<uint8_t> data = {1, 2, 3, 4};
     std::vector<std::vector<uint8_t>> nested = {{255, 255}, {255, 255}};
+    std::vector<std::string> names = {"a", "b", "c"};
 };
 
 namespace codec
@@ -32,8 +34,6 @@ namespace codec
     {
         static void _(Codec& codec, Box& object)
         {
-            printf("Box specialization\n");
-
             field(codec, object.u8);
             field(codec, object.u16);
             field(codec, object.u32);
@@ -42,6 +42,7 @@ namespace codec
             field(codec, object.person);
             field(codec, object.data, binary::L32);
             field(codec, object.nested, binary::L16, binary::L16);
+            field(codec, object.names, binary::L16, binary::L16);
         }
     };
 

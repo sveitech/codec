@@ -19,7 +19,7 @@ namespace codec
     template <class Codec, class Object, class... Args>
     struct Field
     {
-        static void _(Codec& codec, Object& object)
+        static void _(Codec& codec, Object& object, Args... args)
         {
             printf("Default Field implementation\n");
         }
