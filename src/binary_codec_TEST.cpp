@@ -3,9 +3,68 @@
 #include <type_traits>
 
 #include "codec/binary_codec.hpp"
+#include "codec/codec.hpp"
 
 using namespace testing;
 
+struct Person
+{
+    uint32_t age = 0;
+    std::string name = "John";
+};
+
+struct Box
+{
+    uint8_t u8 = 10;
+    uint16_t u16 = 1000;
+    uint32_t u32 = 1000000;
+    uint64_t u64 = 0x1122334455667788;
+    std::string text = "hello";
+    Person person;
+    std::vector<uint8_t> data = {1, 2, 3, 4};
+    std::vector<std::vector<uint8_t>> nested = {{255, 255}, {255, 255}};
+};
+
+namespace codec
+{
+    template <class Codec>
+    struct Layout<Codec, Box>
+    {
+        static void _(Codec& codec, Box& object)
+        {
+            printf("Box specialization\n");
+
+            field(codec, object.u8);
+            field(codec, object.u16);
+            field(codec, object.u32);
+            field(codec, object.u64);
+            field(codec, object.text);
+            field(codec, object.person);
+            field(codec, object.data, binary::L32);
+            field(codec, object.nested, binary::L16, binary::L16);
+        }
+    };
+
+    // Shorthand, using macro
+    codec_define_layout(Person, {
+        field(c, o.age);
+        field(c, o.name);
+    });
+}
+
+TEST(codec, usage)
+{
+    Box box;
+    codec::binary::Encoder encoder;
+
+    codec::codec(encoder, box);
+
+    for (auto& c : encoder.data)
+        printf("%x, ", (uint8_t)c);
+    printf("\n");
+}
+
+/*
 struct Object
 {
     uint8_t value_8 = 10;
@@ -23,8 +82,8 @@ namespace codec
         field(c, o.value_8);
         field(c, o.value_16);
         field(c, o.value_string, binary::L32);
-        // field(c, o.complex, binary::L32, binary::L32, binary::L32);
-        // field(c, o.list, binary::L32, "string_value");
+        field(c, o.complex, binary::L32, binary::L32, binary::L32);
+        field(c, o.list, binary::L32, "string_value");
     }
 }
 
@@ -130,38 +189,39 @@ TEST(codec, every_type)
     // ASSERT_EQ(200, restored_object.box.height);
 }
 
-// namespace ns
-// {
-//     template <class T, class O>
-//     void tf(T& value, O& o)
-//     {
-//         printf("dummy tf\n");
-//     }
-// }
+namespace ns
+{
+    template <class T>
+    void tf(T& value)
+    {
+        printf("dummy tf\n");
+    }
+}
 
-// template <class T, class O>
-// void foo(T& value, O& o)
-// {
-//     ns::tf(value, o);
-// }
+template <class T, class O>
+void foo(T& value, O& o)
+{
+    ns::tf(value);
+}
 
-// template <class O>
-// void ns::tf<uint32_t, O>(uint32_t& value, O& o)
-// {
-//     printf("uint32_t specialization\n");
-// }
-
-// /**
-//  * Functions cannot be partially specialized. Instead, they
-//  * behave like overloads. This is why this function picks up
-//  * the dummy tf first, because tf is not a dependent name.
-//  */
-// TEST(codec, adl_no_work)
-// {
-//     uint32_t a = 100;
-//     std::string b = "hej";
-//     foo(a, b);
-// }
+template <>
+void ns::tf<uint32_t>(uint32_t& value)
+{
+    printf("uint32_t specialization\n");
+}
+*/
+/**
+ * Functions cannot be partially specialized. Instead, they
+ * behave like overloads. This is why this function picks up
+ * the dummy tf first, because tf is not a dependent name.
+ */
+/*
+TEST(codec, adl_no_work)
+{
+    uint32_t a = 100;
+    std::string b = "hej";
+    foo(a, b);
+}
 
 // namespace ns_2
 // {
@@ -260,3 +320,4 @@ TEST(codec, functors)
     Person p;
     codec::codec(T, p);
 }
+*/

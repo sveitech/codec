@@ -51,3 +51,26 @@ An encoder/decoder object of the wanted type is created. We call a codec()
 function, tailored for the Object type at hand, and in conjunction with the
 encoder object, performs the encoding. The encoder object contains the encoding
 after returning from the function.
+
+## Defining Layouts
+
+```cpp
+    template <class Codec>
+    struct Layout<Codec, Box>
+    {
+        static void _(Codec& codec, Box& object)
+        {
+            field(codec, object.u8);
+            field(codec, object.u16);
+            field(codec, object.u32);
+        }
+    };
+
+    // Shorthand, using macro. The macro always defines the Codec with name 'c',
+    // and the object with name 'o'.
+    codec_define_layout(Box, {
+        field(c, o.u8);
+        field(c, o.u16);
+        field(c, o.u32);
+    })
+```
