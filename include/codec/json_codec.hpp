@@ -15,8 +15,9 @@ namespace codec
         {
             std::unordered_map<intptr_t, std::string> meta;
 
+            // Get the string name of the field (meta-info)
             template <class T>
-            std::string const& get_meta(T& object)
+            std::string const& name(T& object)
             {
                 static const std::string dummy = "";
                 auto it = meta.find((intptr_t)&object);
@@ -26,17 +27,27 @@ namespace codec
                 else
                     return dummy;
             }
+
+            // Get current active json object
+            nlohmann::json top() { return json[pointer]; }
+
+            nlohmann::json json;
+            nlohmann::json::json_pointer pointer;
         };
 
         struct Encoder : public Codec
         {
             std::string to_string() { return json.dump(4); }
-
-            nlohmann::json json;
         };
 
         struct Decoder : public Codec
-        {};
+        {
+            void reset(std::string const& json_text)
+            {
+                json = nlohmann::json::parse(json_text.c_str());
+                pointer = nlohmann::json::json_pointer();
+            }
+        };
     } // namespace json
 
     /**
@@ -46,7 +57,6 @@ namespace codec
      * which are of the type std::string. All others are ignored.
      */
     codec_define_meta(json::Encoder, std::string, {
-        printf("Registering meta for : %u\n", (intptr_t)&object);
         c.meta[(intptr_t)&object] = meta;
     });
 
@@ -58,22 +68,41 @@ namespace codec
      * PRIMITIVE FIELDS
      */
     codec_define_field(json::Encoder, uint8_t, {
-        c.json[c.get_meta(value)] = value;
+        c.json[c.name(value)] = value;
     });
 
-    codec_define_field(json::Decoder,
-                       uint8_t,
-                       {
-                           // TODO
-                       });
+    codec_define_field(json::Decoder, uint8_t, {
+        value = c.top()[c.name(value)];
+    });
+
+    codec_define_field(json::Encoder, int8_t, {
+        c.json[c.name(value)] = value;
+    });
+
+    codec_define_field(json::Decoder, int8_t, {
+        value = c.top()[c.name(value)];
+    });
 
     codec_define_field(json::Encoder, uint32_t, {
-        c.json[c.get_meta(value)] = value;
+        c.json[c.name(value)] = value;
     });
 
     codec_define_field(json::Encoder, std::string, {
-        c.json[c.get_meta(value)] = value;
+        c.json[c.name(value)] = value;
     });
+
+    codec_define_field(json::Decoder, std::string, {
+        value = c.json[c.name(value)];
+    });
+
+    template <class T>
+    struct Field<json::Encoder, std::vector<T>>
+    {
+        static void _(json::Encoder& c, std::vector<T>& value) 
+        {
+            
+        }
+    };
 }
 
 #endif
