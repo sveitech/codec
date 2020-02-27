@@ -41,6 +41,8 @@ namespace codec
                      nlohmann::json::json_pointer& pointer,
                      json::Object_Type type)
             {
+                adjust_pointer(pointer);
+
                 if (type != json::Object_Type::LIST)
                     pointer.push_back(name(value));
 
@@ -51,6 +53,8 @@ namespace codec
             nlohmann::json& create_object(T& value,
                                           nlohmann::json::json_pointer& pointer)
             {
+                adjust_pointer(pointer);
+
                 pointer.push_back(name(value));
                 json[pointer] = nlohmann::json::object();
                 return json[pointer];
@@ -60,23 +64,28 @@ namespace codec
             nlohmann::json& create_list(T& value,
                                         nlohmann::json::json_pointer& pointer)
             {
+                adjust_pointer(pointer);
+
                 pointer.push_back(name(value));
                 json[pointer] = nlohmann::json::array();
                 return json[pointer];
             }
 
-            void push_last_known(nlohmann::json::json_pointer const& pointer,
-                                 Object_Type type)
+            void adjust_pointer(nlohmann::json::json_pointer& pointer)
             {
-                last_known_pointer.push(
-                    std::tuple<nlohmann::json::json_pointer, Object_Type>(
-                        pointer, type));
+                pointer = root / pointer;
+
+                printf("Pointer adjusted to: %s\n",
+                       pointer.to_string().c_str());
+            }
+
+            void set_root(nlohmann::json::json_pointer const& pointer)
+            {
+                root = pointer;
             }
 
             nlohmann::json json;
-            nlohmann::json::json_pointer current_pointer;
-            std::stack<std::tuple<nlohmann::json::json_pointer, Object_Type>>
-                last_known_pointer;
+            nlohmann::json::json_pointer root;
         };
 
         struct Encoder : public Codec
@@ -138,9 +147,11 @@ namespace codec
                       json::Object_Type type = json::Object_Type::ELEMENT)
         {
             printf("object. pointer: %s\n", pointer.to_string().c_str());
+            auto original_pointer = pointer;
             c.create_object(value, pointer);
-            c.push_last_known(pointer, type);
+            c.set_root(pointer);
             ::codec::codec(c, value);
+            c.set_root(original_pointer);
         }
     };
 
@@ -155,6 +166,7 @@ namespace codec
         {
             printf("uint8_t: %s\n", pointer.to_string().c_str());
             c.set(value, pointer, type);
+            printf("uint8_t done\n");
         }
     };
 
@@ -194,14 +206,13 @@ namespace codec
 
             for (size_t i = 0; i < value.size(); i++)
             {
-                auto pointer_base = pointer;
-                pointer_base.push_back(std::to_string(i));
+                auto pointer_index = pointer / i;
                 ::codec::Field<json::Encoder,
                                T,
                                nlohmann::json::json_pointer,
                                json::Object_Type>::_(c,
                                                      value[i],
-                                                     pointer_base,
+                                                     pointer_index,
                                                      json::Object_Type::LIST);
             }
         }
