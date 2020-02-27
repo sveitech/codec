@@ -52,6 +52,12 @@ namespace codec
                             ::codec::field(codec, length);
                             return length;
                         }
+                        case Prefix_Type::L64:
+                        {
+                            uint64_t length = object.size();
+                            ::codec::field(codec, length);
+                            return length;
+                        }
                     }
                 }
                 else
@@ -142,12 +148,30 @@ namespace codec
         value = c.data[c.index++] & 0xFF;
     });
 
+    codec_define_field(binary::Encoder, int8_t, {
+        c.data.push_back(value & 0xFF);
+    });
+
+    codec_define_field(binary::Decoder, int8_t, {
+        value = c.data[c.index++] & 0xFF;
+    });
+
     codec_define_field(binary::Encoder, uint16_t, {
         c.data.push_back((value >> 0) & 0xFF);
         c.data.push_back((value >> 8) & 0xFF);
     });
 
     codec_define_field(binary::Decoder, uint16_t, {
+        value = c.data[c.index++];
+        value += (c.data[c.index++] << 8);
+    });
+
+    codec_define_field(binary::Encoder, int16_t, {
+        c.data.push_back((value >> 0) & 0xFF);
+        c.data.push_back((value >> 8) & 0xFF);
+    });
+
+    codec_define_field(binary::Decoder, int16_t, {
         value = c.data[c.index++];
         value += (c.data[c.index++] << 8);
     });
@@ -160,6 +184,20 @@ namespace codec
     });
 
     codec_define_field(binary::Decoder, uint32_t, {
+        value = c.data[c.index++];
+        value += (c.data[c.index++] << 8);
+        value += (c.data[c.index++] << 16);
+        value += (c.data[c.index++] << 24);
+    });
+
+    codec_define_field(binary::Encoder, int32_t, {
+        c.data.push_back((value >> 0) & 0xFF);
+        c.data.push_back((value >> 8) & 0xFF);
+        c.data.push_back((value >> 16) & 0xFF);
+        c.data.push_back((value >> 24) & 0xFF);
+    });
+
+    codec_define_field(binary::Decoder, int32_t, {
         value = c.data[c.index++];
         value += (c.data[c.index++] << 8);
         value += (c.data[c.index++] << 16);
@@ -186,6 +224,28 @@ namespace codec
         value += ((uint64_t)c.data[c.index++] << 40);
         value += ((uint64_t)c.data[c.index++] << 48);
         value += ((uint64_t)c.data[c.index++] << 56);
+    });
+
+    codec_define_field(binary::Encoder, int64_t, {
+        c.data.push_back((value >> 0) & 0xFF);
+        c.data.push_back((value >> 8) & 0xFF);
+        c.data.push_back((value >> 16) & 0xFF);
+        c.data.push_back((value >> 24) & 0xFF);
+        c.data.push_back((value >> 32) & 0xFF);
+        c.data.push_back((value >> 40) & 0xFF);
+        c.data.push_back((value >> 48) & 0xFF);
+        c.data.push_back((value >> 56) & 0xFF);
+    });
+
+    codec_define_field(binary::Decoder, int64_t, {
+        value = c.data[c.index++];
+        value += (c.data[c.index++] << 8);
+        value += (c.data[c.index++] << 16);
+        value += (c.data[c.index++] << 24);
+        value += ((int64_t)c.data[c.index++] << 32);
+        value += ((int64_t)c.data[c.index++] << 40);
+        value += ((int64_t)c.data[c.index++] << 48);
+        value += ((int64_t)c.data[c.index++] << 56);
     });
 
     /**

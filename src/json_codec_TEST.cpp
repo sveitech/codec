@@ -7,22 +7,35 @@ using namespace testing;
 
 namespace
 {
+    struct Box
+    {
+        uint8_t width = 100;
+        uint8_t height = 200;
+    };
+
     struct Object
     {
-        uint8_t value_u8 = 22;
-        uint32_t value_u32 = 0x11223344;
-        std::string value_string = "Hello";
-        std::vector<uint32_t> value_v_u32 = {1, 2, 3, 4};
+        // uint8_t value_u8 = 22;
+        // uint32_t value_u32 = 0x11223344;
+        // std::string value_string = "Hello";
+        // std::vector<uint8_t> value_v_u8 = {1, 2, 3, 4};
+        std::vector<Box> value_boxes = {Box(), Box()};
     };
 }
 
 namespace codec
 {
     codec_define_layout(Object, {
-        field(c, o.value_u8, std::string("small_number"));
-        field(c, o.value_u32, std::string("number"));
-        field(c, o.value_string, "phrase");
-        field(c, o.value_v_u32, "numbers");
+        // field(c, o.value_u8, std::string("small_number"));
+        // field(c, o.value_u32, std::string("number"));
+        // field(c, o.value_string, "phrase");
+        // field(c, o.value_v_u8, "numbers");
+        field(c, o.value_boxes, "boxes");
+    });
+
+    codec_define_layout(Box, {
+        field(c, o.width, "width");
+        field(c, o.height, "height");
     });
 }
 

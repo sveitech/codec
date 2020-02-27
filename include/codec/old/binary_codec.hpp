@@ -5,7 +5,7 @@
 #include <unordered_map>
 #include <vector>
 
-#include "codec.hpp"
+#include "codec/codec.hpp"
 
 namespace codec
 {
