@@ -36,66 +36,47 @@ namespace codec
                     return dummy;
             }
 
-            // Get current active json object
-            nlohmann::json& top() { return json[pointer]; }
-
             template <class T>
-            void set(T& object)
+            void set(T& value,
+                     nlohmann::json::json_pointer& pointer,
+                     json::Object_Type type)
             {
-                if (get_type() == Object_Type::ELEMENT)
-                    top()[name(object)] = object;
-                else if (get_type() == Object_Type::LIST)
-                    push(object);
-            }
+                if (type != json::Object_Type::LIST)
+                    pointer.push_back(name(value));
 
-            template <class T>
-            void push(T& object)
-            {
-                top().push_back(object);
+                json[pointer] = value;
             }
 
             template <class T>
-            void enter(T& object, Object_Type type)
+            nlohmann::json& create_object(T& value,
+                                          nlohmann::json::json_pointer& pointer)
             {
-                this->type.push(type);
-
-                if (type == Object_Type::OBJECT)
-                {
-                    pointer.push_back(name(object));
-                    top()[name(object)] = nlohmann::json::object();
-                }
-                else if (type == Object_Type::LIST)
-                {
-                    pointer.push_back(name(object));
-                    top()[name(object)] = nlohmann::json::array();
-                }
+                pointer.push_back(name(value));
+                json[pointer] = nlohmann::json::object();
+                return json[pointer];
             }
 
-            void exit()
+            template <class T>
+            nlohmann::json& create_list(T& value,
+                                        nlohmann::json::json_pointer& pointer)
             {
-                pointer = pointer.parent_pointer();
-                type.pop();
+                pointer.push_back(name(value));
+                json[pointer] = nlohmann::json::array();
+                return json[pointer];
             }
 
-            Object_Type get_type()
+            void push_last_known(nlohmann::json::json_pointer const& pointer,
+                                 Object_Type type)
             {
-                if (type.size() > 0)
-                    return type.top();
-                else
-                    return Object_Type::ELEMENT;
-            }
-
-            nlohmann::json* init(nlohmann::json* json)
-            {
-                if (json == nullptr)
-                    return &this->json;
-                else
-                    return json;
+                last_known_pointer.push(
+                    std::tuple<nlohmann::json::json_pointer, Object_Type>(
+                        pointer, type));
             }
 
             nlohmann::json json;
-            nlohmann::json::json_pointer pointer;
-            std::stack<Object_Type> type;
+            nlohmann::json::json_pointer current_pointer;
+            std::stack<std::tuple<nlohmann::json::json_pointer, Object_Type>>
+                last_known_pointer;
         };
 
         struct Encoder : public Codec
@@ -108,7 +89,7 @@ namespace codec
             void reset(std::string const& json_text)
             {
                 json = nlohmann::json::parse(json_text.c_str());
-                pointer = nlohmann::json::json_pointer();
+                // pointer = nlohmann::json::json_pointer();
             }
         };
     } // namespace json
@@ -132,13 +113,18 @@ namespace codec
      */
 
     template <class Object>
-    struct Field<json::Encoder, Object, nlohmann::json::json_pointer>
+    struct Field<json::Encoder,
+                 Object,
+                 nlohmann::json::json_pointer,
+                 json::Object_Type>
     {
         static void _(json::Encoder& c,
                       Object& value,
-                      nlohmann::json* json = nullptr)
+                      nlohmann::json::json_pointer pointer =
+                          nlohmann::json::json_pointer(),
+                      json::Object_Type type = json::Object_Type::ELEMENT)
         {
-            Field<json::Encoder, Object>::_(c, value, json);
+            Field<json::Encoder, Object>::_(c, value, pointer, type);
         }
     };
 
@@ -147,30 +133,30 @@ namespace codec
     {
         static void _(json::Encoder& c,
                       Object& value,
-                      nlohmann::json* json = nullptr)
+                      nlohmann::json::json_pointer pointer =
+                          nlohmann::json::json_pointer(),
+                      json::Object_Type type = json::Object_Type::ELEMENT)
         {
-            // printf("a\n");
-            // c.enter(value, json::Object_Type::OBJECT);
-            // printf("b\n");
-
-            // c.exit();
-            // if (c.get_type() == json::Object_Type::ELEMENT)
-            // {
-            //     c.top()[c.name(value)] = nlohmann::json::object();
-            // }
-            // else
-            // {
-            //     c.top().push_back(nlohmann::json::object());
-            // }
-
-            // c.enter(value, json::Object_Type::ELEMENT);
-            // c.top() = nlohmann::json::object();
-            // ::codec::codec(c, value);
-            // c.exit();
+            printf("object. pointer: %s\n", pointer.to_string().c_str());
+            c.create_object(value, pointer);
+            c.push_last_known(pointer, type);
+            ::codec::codec(c, value);
         }
     };
 
-    // codec_define_field(json::Encoder, uint8_t, { c.set(value); });
+    template <>
+    struct Field<json::Encoder, uint8_t>
+    {
+        static void _(json::Encoder& c,
+                      uint8_t& value,
+                      nlohmann::json::json_pointer pointer =
+                          nlohmann::json::json_pointer(),
+                      json::Object_Type type = json::Object_Type::ELEMENT)
+        {
+            printf("uint8_t: %s\n", pointer.to_string().c_str());
+            c.set(value, pointer, type);
+        }
+    };
 
     // codec_define_field(json::Decoder, uint8_t, {
     //     value = c.top()[c.name(value)];
@@ -199,23 +185,25 @@ namespace codec
     {
         static void _(json::Encoder& c,
                       std::vector<T>& value,
-                      nlohmann::json* json = nullptr)
+                      nlohmann::json::json_pointer pointer =
+                          nlohmann::json::json_pointer(),
+                      json::Object_Type type = json::Object_Type::ELEMENT)
         {
-            json = c.init(json);
+            printf("vector. pointer: %s\n", pointer.to_string().c_str());
+            c.create_list(value, pointer);
 
-            (*json)[c.name(value)] = nlohmann::json::array();
-            // pointer.push_back(c.name(value));
-            // c.type.push(json::Object_Type::LIST);
-            // c.json[pointer] = nlohmann::json::array();
-
-            // for (auto& element : value)
-            //     Field<json::Encoder, T>::_(c, element, pointer);
-            // c.enter(value, json::Object_Type::LIST);
-
-            // for (auto& v : value)
-            //     ::codec::field(c, v);
-
-            // c.exit();
+            for (size_t i = 0; i < value.size(); i++)
+            {
+                auto pointer_base = pointer;
+                pointer_base.push_back(std::to_string(i));
+                ::codec::Field<json::Encoder,
+                               T,
+                               nlohmann::json::json_pointer,
+                               json::Object_Type>::_(c,
+                                                     value[i],
+                                                     pointer_base,
+                                                     json::Object_Type::LIST);
+            }
         }
     };
 }
