@@ -7,40 +7,56 @@ using namespace testing;
 
 namespace
 {
+    struct Thing
+    {
+        uint8_t id = 123;
+    };
+
     struct Box
     {
         uint8_t width = 100;
         uint8_t height = 200;
+        Thing thing;
+        std::vector<std::vector<Thing>> things = {{Thing(), Thing()},
+                                                  {Thing(), Thing()}};
     };
 
     struct Object
     {
-        // uint8_t value_u8 = 22;
-        // uint32_t value_u32 = 0x11223344;
-        // std::string value_string = "Hello";
-        // std::vector<uint8_t> value_v_u8 = {1, 2, 3, 4};
-        // std::vector<Box> value_boxes = {Box(), Box()};
+        uint8_t value_u8 = 22;
+        uint32_t value_u32 = 0x11223344;
+        std::string value_string = "Hello";
+        std::vector<uint8_t> value_v_u8 = {1, 2, 3, 4};
         Box box;
+        Box box2;
         std::vector<uint8_t> value_u8v = {1, 2, 3, 4};
+        std::vector<Box> value_boxes = {Box(), Box()};
+        std::vector<std::string> value_strings = {"a", "b", "c"};
     };
 }
 
 namespace codec
 {
     codec_define_layout(Object, {
-        // field(c, o.value_u8, std::string("small_number"));
-        // field(c, o.value_u32, std::string("number"));
-        // field(c, o.value_string, "phrase");
-        // field(c, o.value_v_u8, "numbers");
-        // field(c, o.value_boxes, "boxes");
+        field(c, o.value_u8, std::string("value_u8"));
+        field(c, o.value_u32, std::string("value_u32"));
+        field(c, o.value_string, "value_string");
+        field(c, o.value_v_u8, "value_v_u8");
         field(c, o.box, "box");
-        field(c, o.value_u8v, "values");
+        field(c, o.box2, "box2");
+        field(c, o.value_u8v, "value_u8v");
+        field(c, o.value_boxes, "value_boxes");
+        field(c, o.value_strings, "value_strings");
     });
 
     codec_define_layout(Box, {
         field(c, o.width, "width");
         field(c, o.height, "height");
+        field(c, o.thing, "thing");
+        field(c, o.things, "things");
     });
+
+    codec_define_layout(Thing, { field(c, o.id, "id"); });
 }
 
 TEST(json_codec, usage)
