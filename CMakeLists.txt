@@ -11,6 +11,7 @@ set(sources
 set(test_sources
 	src/binary_codec_TEST.cpp
 	src/json_codec_TEST.cpp
+	src/templates_TEST.cpp
 )
 
 add_executable(codec_test ${sources} ${test_sources})

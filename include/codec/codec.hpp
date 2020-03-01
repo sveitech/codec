@@ -13,10 +13,16 @@ namespace codec
         static void _(Codec& codec, Object& object) {}
     };
 
-    template <class Codec, class Object, class... Args>
+    template <class Codec, class Object, class Enabled = void>
     struct Field
     {
-        static void _(Codec& codec, Object& object, Args... args) {}
+        // Accept any signature for _. This allows codecs to add special
+        // meta information to the _ function.
+        template <class... Args>
+        static void _(Codec& codec, Object& object, Args... args)
+        {
+            printf("Dummy field\n");
+        }
     };
 
     template <class Codec, class Object, class M>
@@ -93,7 +99,15 @@ namespace codec
     template <>                                                                \
     struct Field<Codec, Object>                                                \
     {                                                                          \
-        static void _(Codec& c, Object& value) x                               \
+        template <class... Args>                                               \
+        static void _(Codec& c, Object& value, Args... args) x                 \
+    };
+
+#define codec_define_field_with_meta(Codec, Object, Meta, x)                   \
+    template <>                                                                \
+    struct Field<Codec, Object, Meta>                                          \
+    {                                                                          \
+        static void _(Codec& c, Object& value, Meta meta) x                    \
     };
 
 #define codec_define_meta(Codec, M, x)                                         \

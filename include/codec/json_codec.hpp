@@ -12,6 +12,9 @@ namespace codec
 {
     namespace json
     {
+        struct Primitive
+        {};
+
         struct Codec
         {
             std::unordered_map<intptr_t, std::string> meta;
@@ -108,54 +111,46 @@ namespace codec
      */
 
     template <class Object>
-    struct Field<json::Encoder, Object, nlohmann::json::json_pointer>
-    {
-        static void _(json::Encoder& c,
-                      Object& value,
-                      nlohmann::json::json_pointer pointer =
-                          nlohmann::json::json_pointer())
-        {
-            Field<json::Encoder, Object>::_(c, value, pointer);
-        }
-    };
-
-    template <class Object>
     struct Field<json::Encoder, Object>
     {
+        // Catch-all. If none of the other functions instantiate, this template
+        // will be invoked instead.
+        template <class... T>
+        static void __(T... args)
+        {}
+
+        template <
+            class Codec,
+            class T,
+            typename std::enable_if<std::is_integral<T>::value, int>::type = 0>
+        static void __(Codec& c,
+                       T& object,
+                       nlohmann::json::json_pointer pointer)
+        {
+            c.set(object, pointer);
+        }
+
+        template <
+            class Codec,
+            class T,
+            typename std::enable_if<!std::is_integral<T>::value, int>::type = 0>
+        static void __(Codec& c,
+                       T& object,
+                       nlohmann::json::json_pointer pointer)
+        {
+            auto original_root = c.root;
+            c.create_object(object, pointer);
+            c.set_root(pointer);
+            ::codec::codec(c, object);
+            c.set_root(original_root);
+        }
+
         static void _(json::Encoder& c,
                       Object& value,
                       nlohmann::json::json_pointer pointer =
                           nlohmann::json::json_pointer())
         {
-            auto original_pointer = c.root;
-            c.create_object(value, pointer);
-            c.set_root(pointer);
-            ::codec::codec(c, value);
-            c.set_root(original_pointer);
-        }
-    };
-
-    template <>
-    struct Field<json::Encoder, uint8_t>
-    {
-        static void _(json::Encoder& c,
-                      uint8_t& value,
-                      nlohmann::json::json_pointer pointer =
-                          nlohmann::json::json_pointer())
-        {
-            c.set(value, pointer);
-        }
-    };
-
-    template <>
-    struct Field<json::Encoder, uint32_t>
-    {
-        static void _(json::Encoder& c,
-                      uint32_t& value,
-                      nlohmann::json::json_pointer pointer =
-                          nlohmann::json::json_pointer())
-        {
-            c.set(value, pointer);
+            __(c, value, pointer);
         }
     };
 
@@ -184,8 +179,7 @@ namespace codec
             for (size_t i = 0; i < value.size(); i++)
             {
                 auto pointer_index = pointer / i;
-                ::codec::Field<json::Encoder, T, nlohmann::json::json_pointer>::
-                    _(c, value[i], pointer_index);
+                ::codec::Field<json::Encoder, T>::_(c, value[i], pointer_index);
             }
         }
     };
