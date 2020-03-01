@@ -119,22 +119,14 @@ namespace codec
 
     // Partial specialization for catching user structs/classes, which have
     // their own layout.
-    template <class Object>
-    struct Field<binary::Encoder, Object>
+    template <class Codec, class Object>
+    struct Field<Codec,
+                 Object,
+                 typename std::enable_if<
+                     std::is_same<Codec, binary::Encoder>::value ||
+                     std::is_same<Codec, binary::Decoder>::value>::type>
     {
-        static void _(binary::Encoder& c, Object& value)
-        {
-            ::codec::codec(c, value);
-        }
-    };
-
-    template <class Object>
-    struct Field<binary::Decoder, Object>
-    {
-        static void _(binary::Decoder& c, Object& value)
-        {
-            ::codec::codec(c, value);
-        }
+        static void _(Codec& c, Object& value) { ::codec::codec(c, value); }
     };
 
     /**

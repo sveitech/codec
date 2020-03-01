@@ -20,9 +20,7 @@ namespace codec
         // meta information to the _ function.
         template <class... Args>
         static void _(Codec& codec, Object& object, Args... args)
-        {
-            printf("Dummy field\n");
-        }
+        {}
     };
 
     template <class Codec, class Object, class M>
