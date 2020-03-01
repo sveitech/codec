@@ -76,6 +76,7 @@ namespace codec
 }
 */
 
+/*
 namespace codec
 {
     namespace binary
@@ -210,4 +211,204 @@ TEST(templates, fields2)
     ::messages::Box box;
 
     ::codec::codec(encoder, box);
+}
+*/
+
+namespace codec
+{
+    namespace base
+    {
+        struct Codec
+        {};
+
+        // NOTE: If this variadic function is introduced, stuff will compile
+        // even when the codec does not support a specific type. This may
+        // not be a good idea. Compilation errors are preferred, instead of a
+        // codec silently removing a field.
+        //
+        // Variadic, just to make it not conflict with similar declarations
+        // inside the Codecs enclosing namespace.
+        // template <class... T>
+        // void type(T... t)
+        // {
+        //     printf("codec::base::type<c, o>\n");
+        // }
+
+        // Variadic, just to make it not conflict with similar declarations
+        // inside the Codecs enclosing namespace.
+        // This base function picks up unsupported meta fields for a Codec.
+        // This means that new codecs does not need to do anything, to disregard
+        // unwanted metas.
+        template <class... M>
+        void register_meta(M... m)
+        {
+            printf("codec::base::register_meta\n");
+        }
+    }
+
+    template <class Codec, class Object>
+    void codec(Codec& c, Object& o)
+    {
+        printf("codec::codec\n");
+        layout(c, o);
+    }
+
+    template <class Codec, class Object>
+    void field(Codec& c, Object& o)
+    {
+        printf("codec::field<c, o>\n");
+        // NOTE: Rely on ADL to pick up the correct type from within the
+        // namespace of the Codec.
+        type(c, o);
+    }
+
+    template <class Codec, class Object, class M1, class... M>
+    void field(Codec& c, Object& o, M1 m1, M... m)
+    {
+        printf("codec::field<c, o, m1, m>. Stripping meta\n");
+        register_meta(c, o, m1);
+        field(c, o, m...);
+    }
+}
+
+namespace codec
+{
+    namespace binary
+    {
+        enum Prefix
+        {
+            L16,
+            L32
+        };
+
+        // NOTE: By inheriting from the base::Codec, we get access to the
+        // dummy version of register_meta when doing ADL. This allows us to
+        // create Codecs without having to deal with throwing away unwanted
+        // metas. This is done automatically.
+        struct Encoder : public ::codec::base::Codec
+        {};
+
+        // template <class Codec, class Object>
+        // void type(Codec& c, Object& o)
+        // {
+        //     printf("codec::binary::type<c, o>\n");
+        // }
+
+        template <class Object>
+        void register_meta(Encoder& c, Object& o, Prefix meta)
+        {
+            printf("codec::binary::register_meta\n");
+        }
+
+        // NOTE: The type() functions MUST be within the same namespace as
+        // the Encoder/Decoder. Otherwise ADL will not pick them up.
+
+        // Catch-all. This allows us to pass around additional arguments
+        // to local type() functions, and avoid compiler-errors, even if
+        // we do not let every type() function support all the arguments.
+        // Specific beats general. Variadic templates seems to always be
+        // considered last, when there are non-variadic versions available.
+        template <class Codec, class Object, class... T>
+        void type(Codec& c, Object& o, T... t)
+        {
+            printf("codec::binary::type<catch-all>\n");
+            type(c, o);
+        }
+
+        // Catcher for nested objects.
+        template <class Object>
+        void type(Encoder& c, Object& o)
+        {
+            printf("codec::binary::type<OBJECT>\n");
+            layout(c, o);
+        }
+
+        void type(Encoder& c, uint8_t& o)
+        {
+            printf("codec::binary::type<c, uint8_t>\n");
+        }
+
+        void type(Encoder& c, uint16_t& o)
+        {
+            printf("codec::binary::type<c, uint16_t>\n");
+        }
+
+        template <class T>
+        void type(Encoder& c, std::vector<T>& o)
+        {
+            printf("codec::binary::type<c, std::vector>\n");
+            for (auto& e : o)
+                type(c, e, Prefix::L16);
+        }
+    }
+}
+
+// TEST: Provide alternate version for uint16_t for binary encoder
+// Not possible. Results in redefinition
+// namespace codec
+// {
+//     namespace binary
+//     {
+//         void type(Encoder& c, uint16_t& o)
+//         {
+//             printf("OVERRIDE: codec::binary::type<c, uint16_t>\n");
+//         }
+//     }
+// }
+
+// TEST: Provide implementation for custom datatype
+// Works! It is picked up correctly, even though its defined after the inclusion
+// of the codec.
+namespace codec
+{
+    namespace binary
+    {
+        void type(Encoder& c, uint32_t& o)
+        {
+            printf("CUSTOM: codec::binary::type<c, uint32_t>\n");
+        }
+    }
+}
+
+namespace
+{
+    struct Thing
+    {
+        uint8_t price = 111;
+    };
+
+    struct Box
+    {
+        uint8_t width = 100;
+        uint8_t height = 200;
+        uint16_t weight = 10;
+        uint32_t value = 222;
+        std::vector<uint16_t> values = {1, 2, 3, 4};
+        Thing thing;
+    };
+
+    template <class Codec>
+    void layout(Codec& c, Thing& o)
+    {
+        codec::field(c, o.price, "price", codec::binary::L16);
+    }
+
+    template <class Codec>
+    void layout(Codec& c, Box& o)
+    {
+        codec::field(c, o.width, codec::binary::L32, "width");
+        codec::field(c, o.height, "height", codec::binary::L16);
+        codec::field(c, o.weight);
+        codec::field(c, o.value);
+        codec::field(c, o.values);
+        codec::field(c, o.thing, "thing");
+    }
+}
+
+TEST(templates, usage)
+{
+    codec::binary::Encoder encoder;
+    Box box;
+
+    codec::codec(encoder, box);
 }
