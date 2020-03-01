@@ -25,41 +25,35 @@ namespace
         std::vector<std::vector<uint8_t>> nested = {{255, 255}, {255, 255}};
         std::vector<std::string> names = {"a", "b", "c"};
     };
-}
 
-namespace codec
-{
     template <class Codec>
-    struct Layout<Codec, Box>
+    void layout(Codec& codec, Box& object)
     {
-        static void _(Codec& codec, Box& object)
-        {
-            field(codec, object.u8);
-            field(codec, object.u16);
-            field(codec, object.u32);
-            field(codec, object.u64);
-            field(codec, object.text);
-            field(codec, object.person);
-            field(codec, object.data, binary::L32);
-            field(codec, object.nested, binary::L16, binary::L16);
-            field(codec, object.names, binary::L16, binary::L16);
-        }
-    };
-
-    // Shorthand, using macro
-    codec_define_layout(Person, {
-        field(c, o.age);
-        field(c, o.name);
-    });
+        field(codec, object.u8);
+        // field(codec, object.u16);
+        // field(codec, object.u32);
+        // field(codec, object.u64);
+        // field(codec, object.text);
+        // field(codec, object.person);
+        // field(codec, object.data, binary::L32);
+        // field(codec, object.nested, binary::L16, binary::L16);
+        // field(codec, object.names, binary::L16, binary::L16);
+    }
 }
+
+// // Shorthand, using macro
+// codec_define_layout(Person, {
+//     field(c, o.age);
+//     field(c, o.name);
+// });
 
 // Do something special when encoding a Person in binary
-namespace codec
-{
-    codec_define_field(binary::Encoder, Person, {
-        printf("Hello from specialized person serializer\n");
-    });
-}
+// namespace codec
+// {
+//     codec_define_field(binary::Encoder, Person, {
+//         printf("Hello from specialized person serializer\n");
+//     });
+// }
 
 TEST(binary_codec, usage)
 {
@@ -68,7 +62,7 @@ TEST(binary_codec, usage)
 
     codec::codec(encoder, box);
 
-    for (auto& c : encoder.data)
-        printf("%x, ", (uint8_t)c);
-    printf("\n");
+    // for (auto& c : encoder.data)
+    //     printf("%x, ", (uint8_t)c);
+    // printf("\n");
 }

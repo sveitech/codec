@@ -4,6 +4,7 @@
 
 using namespace testing;
 
+/*
 namespace
 {
     template <class A, class Enable = void>
@@ -73,11 +74,19 @@ namespace codec
     //     printf("layout\n");
     // }
 }
+*/
 
 namespace codec
 {
     namespace binary
     {
+        enum Prefix
+        {
+            L0,
+            L8,
+            L32
+        };
+
         class Encoder
         {};
 
@@ -87,6 +96,21 @@ namespace codec
             printf("binary default\n");
             // When no overloads, default to the no-args versions.
             field(c, o);
+        }
+
+        template <class C, class O, class M1, class... M>
+        void field(C& c, O& o, M1 m1, M... m)
+        {
+            printf("Ignoring unknown meta field\n");
+            field(c, o, m...);
+        }
+
+        template <class C, class O, class... Meta>
+        void field(C& c, O& o, Prefix p, Meta... m)
+        {
+            printf("binary with meta\n");
+
+            field(c, o, m...);
         }
 
         template <class C, class O>
@@ -154,26 +178,31 @@ namespace messages
     template <class C>
     void layout(C& c, Box& o)
     {
-        field(c, o.a);
-        field(c, o.b);
-        field(c, o.c);
-        field(c, o.d);
-        field(c, o.e);
-        field(c, o.thing);
+        field(c,
+              o.a,
+              "hello",
+              codec::binary::L32,
+              codec::binary::L32,
+              codec::binary::L32);
+        // field(c, o.b);
+        // field(c, o.c);
+        // field(c, o.d);
+        // field(c, o.e);
+        // field(c, o.thing);
     }
 }
 
 // User extends a codec
-namespace codec
-{
-    namespace binary
-    {
-        void field(Encoder& c, uint8_t& o)
-        {
-            printf("binary::Encoder u8 overload\n");
-        }
-    }
-}
+// namespace codec
+// {
+//     namespace binary
+//     {
+//         void field(Encoder& c, uint8_t& o)
+//         {
+//             printf("binary::Encoder u8 overload\n");
+//         }
+//     }
+// }
 
 TEST(templates, fields2)
 {
