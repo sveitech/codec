@@ -4,12 +4,14 @@ set(CMAKE_CXX_STANDARD 11)
 
 add_subdirectory(lib/googletest)
 
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall")
+
 set(sources
 
 )
 
 set(test_sources
-	src/binary_codec_TEST.cpp
+	#src/binary_codec_TEST.cpp
 	#src/json_codec_TEST.cpp
 	src/templates_TEST.cpp
 )

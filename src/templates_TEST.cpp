@@ -1,6 +1,9 @@
+#include <cstdint>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include <map>
 #include <string>
+#include <unordered_map>
 
 using namespace testing;
 
@@ -239,35 +242,40 @@ namespace codec
         // This base function picks up unsupported meta fields for a Codec.
         // This means that new codecs does not need to do anything, to disregard
         // unwanted metas.
-        template <class... M>
-        void register_meta(M... m)
+        // NOTE: the signature register_meta(M...m) does not work. Codec and
+        // Object needs to be added. Otherwise some weird stuff happens. The
+        // compiler throws bad_alloc errors.
+        template <class Codec, class Object, class... M>
+        void register_meta(Codec& c, Object& o, M... m)
         {
-            printf("codec::base::register_meta\n");
+            printf("register meta dummy\n");
         }
     }
 
     template <class Codec, class Object>
     void codec(Codec& c, Object& o)
     {
-        printf("codec::codec\n");
+        printf("Codec\n");
         layout(c, o);
     }
 
     template <class Codec, class Object>
     void field(Codec& c, Object& o)
     {
-        printf("codec::field<c, o>\n");
         // NOTE: Rely on ADL to pick up the correct type from within the
         // namespace of the Codec.
+        printf("invoking type\n");
         type(c, o);
     }
 
     template <class Codec, class Object, class M1, class... M>
     void field(Codec& c, Object& o, M1 m1, M... m)
     {
-        printf("codec::field<c, o, m1, m>. Stripping meta\n");
+        printf("field with meta\n");
         register_meta(c, o, m1);
+        printf("field with meta registered\n");
         field(c, o, m...);
+        printf("field with meta done\n");
     }
 }
 
@@ -286,7 +294,10 @@ namespace codec
         // create Codecs without having to deal with throwing away unwanted
         // metas. This is done automatically.
         struct Encoder : public ::codec::base::Codec
-        {};
+        {
+            std::vector<uint8_t> data;
+            std::unordered_map<intptr_t, std::vector<Prefix>> meta;
+        };
 
         // template <class Codec, class Object>
         // void type(Codec& c, Object& o)
@@ -297,7 +308,8 @@ namespace codec
         template <class Object>
         void register_meta(Encoder& c, Object& o, Prefix meta)
         {
-            printf("codec::binary::register_meta\n");
+            printf("register meta inside binary\n");
+            c.meta[(intptr_t)&o] = {};
         }
 
         // NOTE: The type() functions MUST be within the same namespace as
@@ -311,32 +323,46 @@ namespace codec
         template <class Codec, class Object, class... T>
         void type(Codec& c, Object& o, T... t)
         {
-            printf("codec::binary::type<catch-all>\n");
             type(c, o);
         }
+
+        // NOTE: Instead of implementing a type() overload for each and
+        // every integral type, we utilize class templates which can be
+        // partially specialized and selected using traits via enable_if.
+        // This allows us to implement serialization and de-serialization
+        // for ALL integral types, in just 20 lines of code.
+        template <class Codec, class Object, class Enabled = void>
+        struct Demultiplex
+        {
+            static void _(Codec& c, Object& o) { layout(c, o); }
+        };
+
+        // Partial specialization for integrals
+        template <class Codec, class Object>
+        struct Demultiplex<
+            Codec,
+            Object,
+            typename std::enable_if<std::is_integral<Object>::value>::type>
+        {
+            static void _(Codec& c, Object& o) { __(c, o); }
+
+            static void __(Encoder& c, Object& o)
+            {
+                for (size_t i = 0; i < sizeof(Object); i++)
+                    c.data.push_back((o >> (i * 8)) & 0xFF);
+            }
+        };
 
         // Catcher for nested objects.
         template <class Object>
         void type(Encoder& c, Object& o)
         {
-            printf("codec::binary::type<OBJECT>\n");
-            layout(c, o);
-        }
-
-        void type(Encoder& c, uint8_t& o)
-        {
-            printf("codec::binary::type<c, uint8_t>\n");
-        }
-
-        void type(Encoder& c, uint16_t& o)
-        {
-            printf("codec::binary::type<c, uint16_t>\n");
+            Demultiplex<Encoder, Object>::_(c, o);
         }
 
         template <class T>
         void type(Encoder& c, std::vector<T>& o)
         {
-            printf("codec::binary::type<c, std::vector>\n");
             for (auto& e : o)
                 type(c, e, Prefix::L16);
         }
@@ -359,16 +385,18 @@ namespace codec
 // TEST: Provide implementation for custom datatype
 // Works! It is picked up correctly, even though its defined after the inclusion
 // of the codec.
-namespace codec
-{
-    namespace binary
-    {
-        void type(Encoder& c, uint32_t& o)
-        {
-            printf("CUSTOM: codec::binary::type<c, uint32_t>\n");
-        }
-    }
-}
+// It even overrides the binary::Codec, because we catch integrals via a
+// template.
+// namespace codec
+// {
+//     namespace binary
+//     {
+//         void type(Encoder& c, uint32_t& o)
+//         {
+//             printf("CUSTOM: codec::binary::type<c, uint32_t>\n");
+//         }
+//     }
+// }
 
 namespace
 {
@@ -396,7 +424,9 @@ namespace
     template <class Codec>
     void layout(Codec& c, Box& o)
     {
+        printf("layout: Box\n");
         codec::field(c, o.width, codec::binary::L32, "width");
+        printf("layout: Box done\n");
         codec::field(c, o.height, "height", codec::binary::L16);
         codec::field(c, o.weight);
         codec::field(c, o.value);
@@ -411,4 +441,8 @@ TEST(templates, usage)
     Box box;
 
     codec::codec(encoder, box);
+
+    // for (auto& d : encoder.data)
+    //     printf("%x, ", d);
+    // printf("\n");
 }
