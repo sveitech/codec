@@ -9,7 +9,7 @@ arm:
 	rm -rf build_arm
 	mkdir build_arm
 	cd build_arm; \
-		cmake -DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_PATH}/Toolchain-arm.cmake
+		cmake -DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_PATH}/Toolchain-arm.cmake ..
 	${MAKE} -C build_arm codec_test
 
 # Use the Nlohmann json library. Steal only whats needed.
