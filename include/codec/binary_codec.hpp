@@ -11,14 +11,29 @@ namespace codec
 {
     namespace binary
     {
-        enum Prefix
+        /**
+         * IMPORTANT!
+         *
+         * Meta information, which is added in the codec::field() function,
+         * CANNOT live in the same namespace as the function register_meta().
+         * Because of ADL, if a field() contains a binary::Prefix, and a json
+         * loader is used, for example, the register_meta() for the binary
+         * codec will still be invoked, because ADL adds the namespace of
+         * Prefix to the lookup. We need to ensure that ADL ONLY finds the
+         * dummy register_meta() function in codec.hpp, when parsing meta fields
+         * not relevant for the current codec.
+         */
+        namespace meta
         {
-            L0,
-            L8,
-            L16,
-            L32,
-            L64
-        };
+            enum Prefix
+            {
+                L0,
+                L8,
+                L16,
+                L32,
+                L64
+            };
+        }
 
         struct Encoder : public ::codec::Codec
         {
@@ -29,7 +44,7 @@ namespace codec
             }
 
             std::vector<uint8_t> data;
-            std::unordered_map<intptr_t, std::vector<Prefix>> meta;
+            std::unordered_map<intptr_t, std::vector<meta::Prefix>> meta;
         };
 
         struct Decoder : public ::codec::Codec
@@ -43,14 +58,14 @@ namespace codec
 
             std::vector<uint8_t> data;
             size_t index = 0;
-            std::unordered_map<intptr_t, std::vector<Prefix>> meta;
+            std::unordered_map<intptr_t, std::vector<meta::Prefix>> meta;
         };
 
         /**
          * Only register meta types which are of the Prefix type.
          */
         template <class Codec, class Object>
-        void register_meta(Codec& c, Object& o, Prefix meta)
+        void register_meta(Codec& c, Object& o, meta::Prefix meta)
         {
             c.meta[(intptr_t)&o].push_back(meta);
         }
@@ -77,7 +92,9 @@ namespace codec
         }
 
         template <class Codec, class Object>
-        size_t codec_prefix(Codec& c, Object& o, std::vector<Prefix>& prefix)
+        size_t codec_prefix(Codec& c,
+                            Object& o,
+                            std::vector<meta::Prefix>& prefix)
         {
             auto it = c.meta.find((intptr_t)&o);
 
@@ -89,13 +106,13 @@ namespace codec
             {
                 switch (prefix[0])
                 {
-                    case Prefix::L8:
+                    case meta::Prefix::L8:
                         return codec_prefix<uint8_t>(c, o);
-                    case Prefix::L16:
+                    case meta::Prefix::L16:
                         return codec_prefix<uint16_t>(c, o);
-                    case Prefix::L32:
+                    case meta::Prefix::L32:
                         return codec_prefix<uint32_t>(c, o);
-                    case Prefix::L64:
+                    case meta::Prefix::L64:
                         return codec_prefix<uint64_t>(c, o);
                     default:
                         return o.size();
@@ -159,7 +176,7 @@ namespace codec
          */
         void type(Encoder& c,
                   std::string& o,
-                  std::vector<Prefix> prefix = {Prefix::L8})
+                  std::vector<meta::Prefix> prefix = {meta::Prefix::L8})
         {
             codec_prefix(c, o, prefix);
             c.data.insert(c.data.end(), o.begin(), o.end());
@@ -167,7 +184,7 @@ namespace codec
 
         void type(Decoder& c,
                   std::string& o,
-                  std::vector<Prefix> prefix = {Prefix::L8})
+                  std::vector<meta::Prefix> prefix = {meta::Prefix::L8})
         {
             auto const length = codec_prefix(c, o, prefix);
             o = std::string(c.data.begin() + c.index,
@@ -181,7 +198,7 @@ namespace codec
         template <class T>
         void type(Encoder& c,
                   std::vector<T>& o,
-                  std::vector<Prefix> prefix = {Prefix::L8})
+                  std::vector<meta::Prefix> prefix = {meta::Prefix::L8})
         {
             codec_prefix(c, o, prefix);
 
@@ -190,7 +207,8 @@ namespace codec
                 if (prefix.size() > 1)
                     type(c,
                          e,
-                         std::vector<Prefix>(prefix.begin() + 1, prefix.end()));
+                         std::vector<meta::Prefix>(prefix.begin() + 1,
+                                                   prefix.end()));
                 else
                     type(c, e);
             }
@@ -199,7 +217,7 @@ namespace codec
         template <class T>
         void type(Decoder& c,
                   std::vector<T>& o,
-                  std::vector<Prefix> prefix = {Prefix::L8})
+                  std::vector<meta::Prefix> prefix = {meta::Prefix::L8})
         {
             auto const length = codec_prefix(c, o, prefix);
             o.resize(length);
@@ -209,7 +227,8 @@ namespace codec
                 if (prefix.size() > 1)
                     type(c,
                          o[i],
-                         std::vector<Prefix>(prefix.begin() + 1, prefix.end()));
+                         std::vector<meta::Prefix>(prefix.begin() + 1,
+                                                   prefix.end()));
                 else
                     type(c, o[i]);
             }

@@ -55,10 +55,10 @@ namespace
         codec::field(c, o.value_u16, "value_u16");
         codec::field(c, o.value_u32, "value_u32");
         codec::field(c, o.value_u64, "value_u64");
-        codec::field(c, o.value_str, codec::binary::L32, "value_str");
-        codec::field(c, o.value_vu8, codec::binary::L16, "value_vu8");
+        codec::field(c, o.value_str, codec::binary::meta::L32, "value_str");
+        codec::field(c, o.value_vu8, codec::binary::meta::L16, "value_vu8");
         codec::field(c, o.thing, "thing");
-        codec::field(c, o.value_vthing, "things");
+        // codec::field(c, o.value_vthing, "things");
     }
 }
 
@@ -140,4 +140,11 @@ TEST(multiple_codec, json_deserialization)
     codec::codec(decoder, restored);
 
     ASSERT_EQ(object.value_u8, restored.value_u8);
+    ASSERT_EQ(object.value_u16, restored.value_u16);
+    ASSERT_EQ(object.value_u32, restored.value_u32);
+    ASSERT_EQ(object.value_u64, restored.value_u64);
+    ASSERT_EQ(object.value_str, restored.value_str);
+    ASSERT_EQ(object.value_vu8, restored.value_vu8);
+    ASSERT_EQ(object.thing.a, restored.thing.a);
+    ASSERT_EQ(object.thing.b, restored.thing.b);
 }

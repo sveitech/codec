@@ -74,7 +74,7 @@ namespace codec
         }
 
         /**
-         * By using class templates, which can be partially specialiced, and
+         * By using class templates, which can be partially specialized, and
          * traits (enable_if) we can process integrals in one fell swoop.
          *
          * The base Demultiplex class handles objects, by just calling layout
@@ -87,8 +87,28 @@ namespace codec
                           Object& o,
                           nlohmann::json::json_pointer pointer)
             {
+                __(c, o, pointer);
+            }
+
+            static void __(Encoder& c,
+                           Object& o,
+                           nlohmann::json::json_pointer pointer)
+            {
                 auto org_root = c.root;
                 c.get(o, pointer) = nlohmann::json::object();
+                c.root = pointer;
+                layout(c, o);
+                c.root = org_root;
+            }
+
+            static void __(Decoder& c,
+                           Object& o,
+                           nlohmann::json::json_pointer pointer)
+            {
+                // Invoke get, just to get pointer updated. No need to create
+                // an objet, as there already is an object here.
+                auto org_root = c.root;
+                c.get(o, pointer);
                 c.root = pointer;
                 layout(c, o);
                 c.root = org_root;
@@ -156,7 +176,7 @@ namespace codec
                   nlohmann::json::json_pointer pointer =
                       nlohmann::json::json_pointer())
         {
-            // c.get(o, pointer) = o;
+            o = (std::string)c.get(o, pointer);
         }
 
         /**
@@ -180,10 +200,11 @@ namespace codec
                   nlohmann::json::json_pointer pointer =
                       nlohmann::json::json_pointer())
         {
-            // c.get(o, pointer) = nlohmann::json::array();
+            auto& json = c.get(o, pointer);
+            o.resize(json.size());
 
-            // for (size_t i = 0; i < o.size(); i++)
-            //     type(c, o[i], pointer / i);
+            for (size_t i = 0; i < o.size(); i++)
+                type(c, o[i], pointer / i);
         }
     }
 }
