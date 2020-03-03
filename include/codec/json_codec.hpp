@@ -66,21 +66,9 @@ namespace codec
 
         /**
          * Only register meta types which are of the string type.
-         * Note: We cannot merge these two register_meta functions into
-         * one. The Prefix type, used for meta-data belongs to the same
-         * namespace as these functions, so when meta-data is registered in the
-         * field() function, other codecs may erroneously pick up these
-         * register_meta functions first, because ADL looks in the namespace of
-         * Prefix.
          */
-        template <class Object, std::size_t N>
-        void register_meta(Encoder& c, Object& o, const char (&meta)[N])
-        {
-            c.meta[(intptr_t)&o] = std::string(meta);
-        }
-
-        template <class Object, std::size_t N>
-        void register_meta(Decoder& c, Object& o, const char (&meta)[N])
+        template <class Codec, class Object, std::size_t N>
+        void register_meta(Codec& c, Object& o, const char (&meta)[N])
         {
             c.meta[(intptr_t)&o] = std::string(meta);
         }
