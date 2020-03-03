@@ -8,10 +8,17 @@ using namespace testing;
 
 namespace
 {
+    struct Box
+    {
+        std::vector<uint8_t> items = {1, 2, 3, 4};
+        std::string name = "box";
+    };
+
     struct Thing
     {
         uint8_t a = 100;
         uint16_t b = 200;
+        std::vector<std::vector<Box>> boxes = {{Box(), Box()}, {Box()}};
     };
 
     struct Object
@@ -27,10 +34,18 @@ namespace
     };
 
     template <class Codec>
+    void layout(Codec& c, Box& o)
+    {
+        codec::field(c, o.items, "items");
+        codec::field(c, o.name, "name");
+    }
+
+    template <class Codec>
     void layout(Codec& c, Thing& o)
     {
         codec::field(c, o.a, "a");
         codec::field(c, o.b, "b");
+        codec::field(c, o.boxes, "boxes");
     }
 
     template <class Codec>
@@ -100,4 +115,29 @@ TEST(multiple_codec, binary_deserialization)
     ASSERT_EQ(object.thing.b, restored.thing.b);
     ASSERT_EQ(3, restored.value_vthing.size());
     ASSERT_EQ(object.value_vthing.size(), restored.value_vthing.size());
+}
+
+TEST(multiple_codec, json_deserialization)
+{
+    codec::json::Encoder encoder;
+    Object object;
+    object.value_u8 = 1;
+    object.value_u16 = 1111;
+    object.value_str = "something something dark side";
+    object.value_u32 = 0x11223344;
+    object.value_u64 = 0x1122334455667788;
+    object.value_vu8 = {10, 11, 12, 13, 14, 15};
+    object.thing.a = 99;
+    object.thing.b = 999;
+    object.value_vthing = {Thing(), Thing(), Thing()};
+
+    codec::codec(encoder, object);
+
+    codec::json::Decoder decoder;
+    Object restored;
+    decoder.reset(encoder.to_string());
+
+    codec::codec(decoder, restored);
+
+    ASSERT_EQ(object.value_u8, restored.value_u8);
 }

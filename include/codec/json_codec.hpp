@@ -12,7 +12,7 @@ namespace codec
 {
     namespace json
     {
-        struct Encoder : public ::codec::Codec
+        struct Base
         {
             std::string to_pretty_string() { return json.dump(4); }
             std::string to_string() { return json.dump(); }
@@ -53,10 +53,15 @@ namespace codec
             std::unordered_map<intptr_t, std::string> meta;
         };
 
-        struct Decoder : public ::codec::Codec
+        struct Encoder : public ::codec::Codec, public Base
+        {};
+
+        struct Decoder : public ::codec::Codec, public Base
         {
-            nlohmann::json json;
-            std::unordered_map<intptr_t, std::string> meta;
+            void reset(std::string const& json)
+            {
+                this->json = nlohmann::json::parse(json);
+            }
         };
 
         /**
@@ -129,7 +134,9 @@ namespace codec
             static void __(Decoder& c,
                            Object& o,
                            nlohmann::json::json_pointer pointer)
-            {}
+            {
+                o = (Object)c.get(o, pointer);
+            }
         };
 
         /**
@@ -145,6 +152,9 @@ namespace codec
             Demultiplex<Codec, Object>::_(c, o, pointer);
         }
 
+        /**
+         * String
+         */
         void type(Encoder& c,
                   std::string& o,
                   nlohmann::json::json_pointer pointer =
@@ -153,6 +163,17 @@ namespace codec
             c.get(o, pointer) = o;
         }
 
+        void type(Decoder& c,
+                  std::string& o,
+                  nlohmann::json::json_pointer pointer =
+                      nlohmann::json::json_pointer())
+        {
+            // c.get(o, pointer) = o;
+        }
+
+        /**
+         * Vector
+         */
         template <class T>
         void type(Encoder& c,
                   std::vector<T>& o,
@@ -163,6 +184,18 @@ namespace codec
 
             for (size_t i = 0; i < o.size(); i++)
                 type(c, o[i], pointer / i);
+        }
+
+        template <class T>
+        void type(Decoder& c,
+                  std::vector<T>& o,
+                  nlohmann::json::json_pointer pointer =
+                      nlohmann::json::json_pointer())
+        {
+            // c.get(o, pointer) = nlohmann::json::array();
+
+            // for (size_t i = 0; i < o.size(); i++)
+            //     type(c, o[i], pointer / i);
         }
     }
 }
