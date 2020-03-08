@@ -27,6 +27,7 @@ namespace codec
         {
             enum Prefix
             {
+                NONE,
                 L0,
                 L8,
                 L16,
@@ -65,9 +66,9 @@ namespace codec
          * Only register meta types which are of the Prefix type.
          */
         template <class Codec, class Object>
-        void register_meta(Codec& c, Object& o, meta::Prefix meta)
+        void register_meta(Codec& codec, Object& object, meta::Prefix meta)
         {
-            c.meta[(intptr_t)&o].push_back(meta);
+            codec.meta[(intptr_t)&object].push_back(meta);
         }
 
         /**
@@ -78,48 +79,61 @@ namespace codec
          * arguments.
          */
         template <class Codec, class Object, class... T>
-        void type(Codec& c, Object& o, T... t)
+        void type(Codec& codec, Object& object, T... t)
         {
-            type(c, o);
+            type(codec, object);
+        }
+
+        template <class Codec, class Object>
+        meta::Prefix get_meta(Codec& codec,
+                              Object& object,
+                              std::vector<meta::Prefix> const& prefix)
+        {
+            auto it = codec.meta.find((intptr_t)&object);
+
+            if (it != codec.meta.end())
+                if (prefix.size() > 0)
+                    return prefix[0];
+
+            return meta::Prefix::NONE;
         }
 
         template <class T, class Codec, class Object>
-        size_t codec_prefix(Codec& c, Object& o)
+        size_t codec_prefix(Codec& codec, Object& object)
         {
-            T length = o.size();
-            type(c, length);
+            T length = object.size();
+            type(codec, length);
             return length;
         }
 
         template <class Codec, class Object>
-        size_t codec_prefix(Codec& c,
-                            Object& o,
+        size_t codec_prefix(Codec& codec,
+                            Object& object,
                             std::vector<meta::Prefix>& prefix)
         {
-            auto it = c.meta.find((intptr_t)&o);
+            auto p = get_meta(codec, object, prefix);
 
-            // Found meta override
-            if (it != c.meta.end())
-                prefix = it->second;
-
-            if (prefix.size() > 0)
+            switch (p)
             {
-                switch (prefix[0])
-                {
-                    case meta::Prefix::L8:
-                        return codec_prefix<uint8_t>(c, o);
-                    case meta::Prefix::L16:
-                        return codec_prefix<uint16_t>(c, o);
-                    case meta::Prefix::L32:
-                        return codec_prefix<uint32_t>(c, o);
-                    case meta::Prefix::L64:
-                        return codec_prefix<uint64_t>(c, o);
-                    default:
-                        return o.size();
-                }
+                case meta::Prefix::L8:
+                    return codec_prefix<uint8_t>(codec, object);
+                case meta::Prefix::L16:
+                    return codec_prefix<uint16_t>(codec, object);
+                case meta::Prefix::L32:
+                    return codec_prefix<uint32_t>(codec, object);
+                case meta::Prefix::L64:
+                    return codec_prefix<uint64_t>(codec, object);
+                default:
+                    return object.size();
             }
 
-            return o.size();
+            return object.size();
+        }
+
+        template <class Codec, class Object>
+        void encode_primitive(Codec& codec, Object& object)
+        {
+            
         }
 
         /**
@@ -132,7 +146,10 @@ namespace codec
         template <class Codec, class Object, class Enabled = void>
         struct Demultiplex
         {
-            static void _(Codec& c, Object& o) { layout(c, o); }
+            static void _(Codec& codec, Object& object)
+            {
+                layout(codec, object);
+            }
         };
 
         /**
@@ -145,19 +162,19 @@ namespace codec
             Object,
             typename std::enable_if<std::is_integral<Object>::value>::type>
         {
-            static void _(Codec& c, Object& o) { __(c, o); }
+            static void _(Codec& codec, Object& object) { __(codec, object); }
 
-            static void __(Encoder& c, Object& o)
+            static void __(Encoder& codec, Object& object)
             {
                 for (size_t i = 0; i < sizeof(Object); i++)
-                    c.data.push_back((o >> (i * 8)) & 0xFF);
+                    codec.data.push_back((object >> (i * 8)) & 0xFF);
             }
 
-            static void __(Decoder& c, Object& o)
+            static void __(Decoder& codec, Object& object)
             {
-                o = 0;
+                object = 0;
                 for (size_t i = 0; i < sizeof(Object); i++)
-                    o += (Object)c.data[c.index++] << (i * 8);
+                    object += (Object)codec.data[codec.index++] << (i * 8);
             }
         };
 
@@ -166,71 +183,80 @@ namespace codec
          * pass through here.
          */
         template <class Codec, class Object>
-        void type(Codec& c, Object& o)
+        void type(Codec& codec, Object& object)
         {
-            Demultiplex<Codec, Object>::_(c, o);
+            Demultiplex<Codec, Object>::_(codec, object);
         }
 
         /**
-         * Strings
+         * Strings.
+         *
+         * NOTE: inline to allow inclusion of these non-template functions in
+         * multiple compilation units. They could be non-inline, and placed
+         * in a cpp file, but it would
+         * create a disconnect between these functions and the rest of this
+         * header, which is entirely template functions.
+         * The only disadvantage of inlining is that the function has a
+         * definition per compilation unit; same as for alle the other template
+         * functions here.
          */
-        void type(Encoder& c,
-                  std::string& o,
-                  std::vector<meta::Prefix> prefix = {meta::Prefix::L8})
+        inline void type(Encoder& codec,
+                         std::string& object,
+                         std::vector<meta::Prefix> prefix = {meta::Prefix::L8})
         {
-            codec_prefix(c, o, prefix);
-            c.data.insert(c.data.end(), o.begin(), o.end());
+            codec_prefix(codec, object, prefix);
+            codec.data.insert(codec.data.end(), object.begin(), object.end());
         }
 
-        void type(Decoder& c,
-                  std::string& o,
-                  std::vector<meta::Prefix> prefix = {meta::Prefix::L8})
+        inline void type(Decoder& codec,
+                         std::string& object,
+                         std::vector<meta::Prefix> prefix = {meta::Prefix::L8})
         {
-            auto const length = codec_prefix(c, o, prefix);
-            o = std::string(c.data.begin() + c.index,
-                            c.data.begin() + c.index + length);
-            c.index += length;
+            auto const length = codec_prefix(codec, object, prefix);
+            object = std::string(codec.data.begin() + codec.index,
+                                 codec.data.begin() + codec.index + length);
+            codec.index += length;
         }
 
         /**
          * Vectors
          */
         template <class T>
-        void type(Encoder& c,
-                  std::vector<T>& o,
+        void type(Encoder& codec,
+                  std::vector<T>& object,
                   std::vector<meta::Prefix> prefix = {meta::Prefix::L8})
         {
-            codec_prefix(c, o, prefix);
+            codec_prefix(codec, object, prefix);
 
-            for (auto& e : o)
+            for (auto& e : object)
             {
                 if (prefix.size() > 1)
-                    type(c,
+                    type(codec,
                          e,
                          std::vector<meta::Prefix>(prefix.begin() + 1,
                                                    prefix.end()));
                 else
-                    type(c, e);
+                    type(codec, e);
             }
         }
 
         template <class T>
-        void type(Decoder& c,
-                  std::vector<T>& o,
+        void type(Decoder& codec,
+                  std::vector<T>& object,
                   std::vector<meta::Prefix> prefix = {meta::Prefix::L8})
         {
-            auto const length = codec_prefix(c, o, prefix);
-            o.resize(length);
+            auto const length = codec_prefix(codec, object, prefix);
+            object.resize(length);
 
             for (size_t i = 0; i < length; i++)
             {
                 if (prefix.size() > 1)
-                    type(c,
-                         o[i],
+                    type(codec,
+                         object[i],
                          std::vector<meta::Prefix>(prefix.begin() + 1,
                                                    prefix.end()));
                 else
-                    type(c, o[i]);
+                    type(codec, object[i]);
             }
         }
     }

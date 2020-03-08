@@ -54,13 +54,21 @@ namespace codec
         };
 
         struct Encoder : public ::codec::Codec, public Base
-        {};
+        {
+            void reset()
+            {
+                json = nlohmann::json();
+                root = nlohmann::json::json_pointer();
+                meta.clear();
+            }
+        };
 
         struct Decoder : public ::codec::Codec, public Base
         {
             void reset(std::string const& json)
             {
                 this->json = nlohmann::json::parse(json);
+                meta.clear();
             }
         };
 
@@ -68,9 +76,9 @@ namespace codec
          * Only register meta types which are of the string type.
          */
         template <class Codec, class Object, std::size_t N>
-        void register_meta(Codec& c, Object& o, const char (&meta)[N])
+        void register_meta(Codec& codec, Object& object, const char (&meta)[N])
         {
-            c.meta[(intptr_t)&o] = std::string(meta);
+            codec.meta[(intptr_t)&object] = std::string(meta);
         }
 
         /**
@@ -83,35 +91,35 @@ namespace codec
         template <class Codec, class Object, class Enabled = void>
         struct Demultiplex
         {
-            static void _(Codec& c,
-                          Object& o,
+            static void _(Codec& codec,
+                          Object& object,
                           nlohmann::json::json_pointer pointer)
             {
-                __(c, o, pointer);
+                __(codec, object, pointer);
             }
 
-            static void __(Encoder& c,
-                           Object& o,
+            static void __(Encoder& codec,
+                           Object& object,
                            nlohmann::json::json_pointer pointer)
             {
-                auto org_root = c.root;
-                c.get(o, pointer) = nlohmann::json::object();
-                c.root = pointer;
-                layout(c, o);
-                c.root = org_root;
+                auto org_root = codec.root;
+                codec.get(object, pointer) = nlohmann::json::object();
+                codec.root = pointer;
+                layout(codec, object);
+                codec.root = org_root;
             }
 
-            static void __(Decoder& c,
-                           Object& o,
+            static void __(Decoder& codec,
+                           Object& object,
                            nlohmann::json::json_pointer pointer)
             {
                 // Invoke get, just to get pointer updated. No need to create
                 // an objet, as there already is an object here.
-                auto org_root = c.root;
-                c.get(o, pointer);
-                c.root = pointer;
-                layout(c, o);
-                c.root = org_root;
+                auto org_root = codec.root;
+                codec.get(object, pointer);
+                codec.root = pointer;
+                layout(codec, object);
+                codec.root = org_root;
             }
         };
 
@@ -125,25 +133,25 @@ namespace codec
             Object,
             typename std::enable_if<std::is_integral<Object>::value>::type>
         {
-            static void _(Codec& c,
-                          Object& o,
+            static void _(Codec& codec,
+                          Object& object,
                           nlohmann::json::json_pointer pointer)
             {
-                __(c, o, pointer);
+                __(codec, object, pointer);
             }
 
-            static void __(Encoder& c,
-                           Object& o,
+            static void __(Encoder& codec,
+                           Object& object,
                            nlohmann::json::json_pointer pointer)
             {
-                c.get(o, pointer) = o;
+                codec.get(object, pointer) = object;
             }
 
-            static void __(Decoder& c,
-                           Object& o,
+            static void __(Decoder& codec,
+                           Object& object,
                            nlohmann::json::json_pointer pointer)
             {
-                o = (Object)c.get(o, pointer);
+                object = (Object)codec.get(object, pointer);
             }
         };
 
@@ -152,59 +160,59 @@ namespace codec
          * pass through here.
          */
         template <class Codec, class Object>
-        void type(Codec& c,
-                  Object& o,
+        void type(Codec& codec,
+                  Object& object,
                   nlohmann::json::json_pointer pointer =
                       nlohmann::json::json_pointer())
         {
-            Demultiplex<Codec, Object>::_(c, o, pointer);
+            Demultiplex<Codec, Object>::_(codec, object, pointer);
         }
 
         /**
          * String
          */
-        void type(Encoder& c,
-                  std::string& o,
+        void type(Encoder& codec,
+                  std::string& object,
                   nlohmann::json::json_pointer pointer =
                       nlohmann::json::json_pointer())
         {
-            c.get(o, pointer) = o;
+            codec.get(object, pointer) = object;
         }
 
-        void type(Decoder& c,
-                  std::string& o,
+        void type(Decoder& codec,
+                  std::string& object,
                   nlohmann::json::json_pointer pointer =
                       nlohmann::json::json_pointer())
         {
-            o = (std::string)c.get(o, pointer);
+            object = (std::string)codec.get(object, pointer);
         }
 
         /**
          * Vector
          */
         template <class T>
-        void type(Encoder& c,
-                  std::vector<T>& o,
+        void type(Encoder& codec,
+                  std::vector<T>& object,
                   nlohmann::json::json_pointer pointer =
                       nlohmann::json::json_pointer())
         {
-            c.get(o, pointer) = nlohmann::json::array();
+            codec.get(object, pointer) = nlohmann::json::array();
 
-            for (size_t i = 0; i < o.size(); i++)
-                type(c, o[i], pointer / i);
+            for (size_t i = 0; i < object.size(); i++)
+                type(codec, object[i], pointer / i);
         }
 
         template <class T>
-        void type(Decoder& c,
-                  std::vector<T>& o,
+        void type(Decoder& codec,
+                  std::vector<T>& object,
                   nlohmann::json::json_pointer pointer =
                       nlohmann::json::json_pointer())
         {
-            auto& json = c.get(o, pointer);
-            o.resize(json.size());
+            auto& json = codec.get(object, pointer);
+            object.resize(json.size());
 
-            for (size_t i = 0; i < o.size(); i++)
-                type(c, o[i], pointer / i);
+            for (size_t i = 0; i < object.size(); i++)
+                type(codec, object[i], pointer / i);
         }
     }
 }
