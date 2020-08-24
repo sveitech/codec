@@ -1,5 +1,5 @@
-project(codec LANGUAGES CXX)
 cmake_minimum_required(VERSION 3.0)
+project(codec LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 11)
 
 add_subdirectory(lib/googletest)
@@ -13,6 +13,7 @@ set(test_sources
 	src/binary_codec_TEST.cpp
 	src/json_codec_TEST.cpp
 	src/multiple_codec_TEST.cpp
+	src/investigations_TEST.cpp
 )
 
 add_executable(codec_test ${sources} ${test_sources})

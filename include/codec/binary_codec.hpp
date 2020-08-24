@@ -137,7 +137,7 @@ namespace codec
         }
 
         /**
-         * By using class templates, which can be partially specialiced, and
+         * By using class templates, which can be partially specialized, and
          * traits (enable_if) we can process integrals in one fell swoop.
          *
          * The base Demultiplex class handles objects, by just calling layout

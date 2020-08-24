@@ -1,6 +1,8 @@
 #ifndef CODEC_CODEC_HEADER
 #define CODEC_CODEC_HEADER
 
+#include <iostream>
+
 namespace codec
 {
     /**
@@ -27,6 +29,7 @@ namespace codec
     template <class Codec, class Object>
     void codec(Codec& c, Object& o)
     {
+        std::cout << "codec::codec" << std::endl;
         layout(c, o);
     }
 

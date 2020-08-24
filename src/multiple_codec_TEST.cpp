@@ -33,12 +33,23 @@ namespace
         std::vector<Thing> value_vthing{Thing(), Thing(), Thing()};
     };
 
+
     template <class Codec>
     void layout(Codec& c, Box& o)
     {
+        std::cout << "Catch-all layout function" << std::endl;
         codec::field(c, o.items, "items");
         codec::field(c, o.name, "name");
     }
+
+    // NOTE: This does not work! We cannot partially specialize functions.
+    // template <class Codec>
+    // void layout(codec::json::Codec& c, Box& o)
+    // {
+    //     std::cout << "Json specific layout function" << std::endl;
+    //     codec::field(c, o.items, "items");
+    //     codec::field(c, o.name, "name");
+    // }
 
     template <class Codec>
     void layout(Codec& c, Thing& o)
@@ -147,4 +158,17 @@ TEST(multiple_codec, json_deserialization)
     ASSERT_EQ(object.value_vu8, restored.value_vu8);
     ASSERT_EQ(object.thing.a, restored.thing.a);
     ASSERT_EQ(object.thing.b, restored.thing.b);
+}
+
+/**
+ * This does not work. We cannot partially specialize functions.
+ */
+TEST(multiple_codec, specific_codec)
+{
+    Box box;
+    codec::binary::Encoder bin_enc;
+    codec::json::Encoder json_enc;
+
+    codec::codec(bin_enc, box);
+    codec::codec(json_enc, box);
 }

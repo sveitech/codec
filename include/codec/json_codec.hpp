@@ -12,7 +12,7 @@ namespace codec
 {
     namespace json
     {
-        struct Base
+        struct Codec
         {
             std::string to_pretty_string() { return json.dump(4); }
             std::string to_string() { return json.dump(); }
@@ -53,7 +53,7 @@ namespace codec
             std::unordered_map<intptr_t, std::string> meta;
         };
 
-        struct Encoder : public ::codec::Codec, public Base
+        struct Encoder : public ::codec::Codec, public Codec
         {
             void reset()
             {
@@ -63,7 +63,7 @@ namespace codec
             }
         };
 
-        struct Decoder : public ::codec::Codec, public Base
+        struct Decoder : public ::codec::Codec, public Codec
         {
             void reset(std::string const& json)
             {
@@ -171,7 +171,7 @@ namespace codec
         /**
          * String
          */
-        void type(Encoder& codec,
+        inline void type(Encoder& codec,
                   std::string& object,
                   nlohmann::json::json_pointer pointer =
                       nlohmann::json::json_pointer())
@@ -179,7 +179,7 @@ namespace codec
             codec.get(object, pointer) = object;
         }
 
-        void type(Decoder& codec,
+        inline void type(Decoder& codec,
                   std::string& object,
                   nlohmann::json::json_pointer pointer =
                       nlohmann::json::json_pointer())
