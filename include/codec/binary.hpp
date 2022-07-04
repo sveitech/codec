@@ -58,6 +58,10 @@ class BinaryOutputCodec {
  public:
   BinaryOutputCodec(std::ostream& stream) : _stream(stream) {}
 
+  /*
+    unroll functions used to handle nested arrays with length-prefix
+    specifiers.
+  */
   template <class T>
   void unroll(T& v, std::vector<prefix_t>& r) {
     // no-op. Used to satisfy the compiler.
@@ -92,11 +96,17 @@ class BinaryOutputCodec {
     }
   }
 
+  /*
+    Arrays with specific length-prefix.
+  */
   template <class T>
   void operator()(ArraySizePrefix<T> a) {
     unroll(a.value, a.size_spec);
   }
 
+  /*
+    Strings with specific length-prefix
+  */
   void operator()(StringSizePrefix a) {
     std::cout << "field: StringSizePrefix" << std::endl;
     switch (a.size_spec) {
@@ -109,71 +119,46 @@ class BinaryOutputCodec {
     }
   }
 
+  /*
+    Generic field.
+  */
   template <class T>
   void operator()(T& v) {
-    std::cout << "field: catch-all" << std::endl;
     serialize(*this, v);
   }
 
-  void operator()(uint8_t& v) {
-    std::cout << "field: uint8_t" << std::endl;
-    integer(v, 1);
-  }
+  /*
+   Primitive specializations
+  */
+  void operator()(uint8_t& v) { integer(v, 1); }
+  void operator()(int8_t& v) { integer(v, 1); }
+  void operator()(uint16_t& v) { integer(v, 2); }
+  void operator()(int16_t& v) { integer(v, 2); }
+  void operator()(uint32_t& v) { integer(v, 4); }
+  void operator()(int32_t& v) { integer(v, 4); }
+  void operator()(uint64_t& v) { integer(v, 8); }
+  void operator()(int64_t& v) { integer(v, 8); }
 
-  void operator()(int8_t& v) {
-    std::cout << "field: int8_t" << std::endl;
-    integer(v, 1);
-  }
+  /*
+  std::string
+  */
+  void operator()(std::string& v) { string<uint8_t>(v); }
 
-  void operator()(uint16_t& v) {
-    std::cout << "field: uint16_t" << std::endl;
-    integer(v, 2);
-  }
-
-  void operator()(int16_t& v) {
-    std::cout << "field: int16_t" << std::endl;
-    integer(v, 2);
-  }
-
-  void operator()(uint32_t& v) {
-    std::cout << "field: uint32_t" << std::endl;
-    integer(v, 4);
-  }
-
-  void operator()(int32_t& v) {
-    std::cout << "field: int32_t" << std::endl;
-    integer(v, 4);
-  }
-
-  void operator()(uint64_t& v) {
-    std::cout << "field: uint64_t" << std::endl;
-    integer(v, 8);
-  }
-
-  void operator()(int64_t& v) {
-    std::cout << "field: int64_t" << std::endl;
-    integer(v, 8);
-  }
-
-  void operator()(std::string& v) {
-    std::cout << "field: string" << std::endl;
-    string<uint8_t>(v);
-  }
-
+  /*
+  std::array
+  */
   template <class T, std::size_t L>
   void operator()(std::array<T, L>& v) {
-    std::cout << "field: std::array" << std::endl;
     for (int i = 0; i < v.size(); i++) {
       (*this)(v[i]);
     }
   }
 
   /*
-  Default vectors assume uint8 prefix.
-  */
+    std::vector
+    */
   template <class T>
   void operator()(std::vector<T>& v) {
-    std::cout << "field: vector" << std::endl;
     uint8_t size = v.size();
     (*this)(size);
     for (int i = 0; i < v.size(); i++) {
