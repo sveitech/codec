@@ -1,24 +1,23 @@
 cmake_minimum_required(VERSION 3.0)
-project(codec LANGUAGES CXX)
+project(codec LANGUAGES C CXX)
+
 set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-add_subdirectory(lib/googletest)
+find_package(GTest)
+find_package(cereal)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall")
+add_executable(codec src/main.cpp)
 
-set(sources
+add_executable(codec_test
+    src/codec_test.cpp
 )
-
-set(test_sources
-	src/binary_codec_TEST.cpp
-	src/json_codec_TEST.cpp
-	src/multiple_codec_TEST.cpp
-	src/investigations_TEST.cpp
+target_include_directories(codec_test PRIVATE
+    include/
 )
-
-add_executable(codec_test ${sources} ${test_sources})
-target_link_libraries(codec_test gmock gtest_main)
-target_include_directories(codec_test 
-	PRIVATE include
-	PRIVATE lib/json/include
+target_link_libraries(codec_test
+    cereal::cereal
+    GTest::gtest
+    GTest::gmock
+    GTest::gtest_main
 )
