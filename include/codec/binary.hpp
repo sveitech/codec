@@ -44,12 +44,12 @@ void load(A& a, ArraySizePrefix<T>& t) {
   a(t.value);
 }
 
-template <class A, class T>
+template <class A>
 void save(A& a, StringSizePrefix const& t) {
   a(t.value);
 }
 
-template <class A, class T>
+template <class A>
 void load(A& a, StringSizePrefix& t) {
   a(t.value);
 }

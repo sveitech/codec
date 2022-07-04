@@ -25,8 +25,8 @@ Cereal signature.
 */
 template <class Archive>
 void serialize(Archive& a, Box& m) {
-  a(m.number);
-  a(m.nested_vector_array);
+  //   a(m.number);
+  //   a(codec::array(m.nested_vector_array, {codec::prefix_t::L16}));
 }
 
 struct ExampleStruct {
@@ -83,7 +83,7 @@ TEST(codec, custom_binary) {
   msg.number_i32 = 7;
   msg.number_i64 = 8;
   msg.box.number = 9;
-  msg.box.nested_vector_array.push_back({1, 1, 1, 1, 1, 1, 1, 1});
+  msg.box.nested_vector_array.push_back({2, 2, 1, 1, 1, 1, 2, 2});
   msg.text = "Hello there";
   msg.long_text = "Hi there some more";
 
@@ -92,6 +92,11 @@ TEST(codec, custom_binary) {
   msg.vector.push_back(3);
 
   msg.vector_nested.push_back({8, 8, 8, 8});
+
+  msg.vector_struct.push_back(Box{});
+  msg.vector_struct.back().number = 11;
+  msg.vector_struct.back().nested_vector_array.push_back(
+      {2, 2, 1, 1, 1, 1, 2, 2});
 
   for (int i = 0; i < msg.array.size(); i++) {
     msg.array[i] = 20;
@@ -111,22 +116,22 @@ TEST(codec, custom_binary) {
   std::cout << std::endl;
 }
 
-// TEST(codec, cerealArchive) {
-//   ExampleStruct msg;
-//   msg.vector_nested.push_back({1, 2, 3});
-//   msg.vector_nested.push_back({4, 5, 6});
-//   msg.vector.push_back(11);
-//   msg.vector.push_back(12);
-//   msg.vector.push_back(13);
-//   msg.text = "Some text";
+TEST(codec, cerealArchive) {
+  ExampleStruct msg;
+  msg.vector_nested.push_back({1, 2, 3});
+  msg.vector_nested.push_back({4, 5, 6});
+  msg.vector.push_back(11);
+  msg.vector.push_back(12);
+  msg.vector.push_back(13);
+  msg.text = "Some text";
 
-//   std::stringstream ss;
+  std::stringstream ss;
 
-//   // Scope guarantees stream flush at end
-//   {
-//     cereal::JSONOutputArchive archive(ss);
-//     archive(msg);
-//   }
+  // Scope guarantees stream flush at end
+  {
+    cereal::JSONOutputArchive archive(ss);
+    archive(msg);
+  }
 
-//   std::cout << "Cereal: " << ss.str() << std::endl;
-// }
+  std::cout << "Cereal: " << ss.str() << std::endl;
+}
