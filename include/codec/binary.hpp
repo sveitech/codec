@@ -1,36 +1,57 @@
 #ifndef SVT_CODEC
 #define SVT_CODEC
 
+#include <algorithm>
 #include <iostream>
+#include <iterator>
 #include <ostream>
 #include <vector>
 
 namespace codec {
 
-enum class array_t { L8, L16 };
+enum class prefix_t { L8, L16 };
 
 template <class T>
-struct Array {
-  std::vector<array_t> size_spec;
+struct ArraySizePrefix {
+  std::vector<prefix_t> size_spec;
   T& value;
 };
 
+struct StringSizePrefix {
+  prefix_t size_spec;
+  std::string& value;
+};
+
 template <class T>
-Array<T> array(T& v, std::vector<array_t> size_spec) {
-  return Array<T>{size_spec, v};
+ArraySizePrefix<T> array(T& v, std::vector<prefix_t> size_spec) {
+  return ArraySizePrefix<T>{size_spec, v};
+}
+
+StringSizePrefix string(std::string& v, prefix_t size_spec) {
+  return StringSizePrefix{size_spec, v};
 }
 
 /*
-Hide the Array<T> type from the built-in cereal archives.
+Hide the *SizePrefix type from the built-in cereal archives.
 */
 template <class A, class T>
-void save(A& a, Array<T> const& t) {
-  save(a, t.value);
+void save(A& a, ArraySizePrefix<T> const& t) {
+  a(t.value);
 }
 
 template <class A, class T>
-void load(A& a, Array<T>& t) {
-  load(a, t.value);
+void load(A& a, ArraySizePrefix<T>& t) {
+  a(t.value);
+}
+
+template <class A, class T>
+void save(A& a, StringSizePrefix const& t) {
+  a(t.value);
+}
+
+template <class A, class T>
+void load(A& a, StringSizePrefix& t) {
+  a(t.value);
 }
 
 class BinaryOutputCodec {
@@ -38,8 +59,54 @@ class BinaryOutputCodec {
   BinaryOutputCodec(std::ostream& stream) : _stream(stream) {}
 
   template <class T>
-  void operator()(Array<T> a) {
-    std::cout << "field: Array" << std::endl;
+  void unroll(T& v, std::vector<prefix_t>& r) {
+    // no-op. Used to satisfy the compiler.
+  }
+
+  template <class T>
+  void unroll(std::vector<T>& v, std::vector<prefix_t>& r) {
+    std::vector<prefix_t> remain;
+    std::copy(r.begin() + 1, r.end(), std::back_inserter(remain));
+
+    if (r.size() > 0) {
+      switch (r[0]) {
+        case prefix_t::L8: {
+          uint8_t size = v.size();
+          (*this)(size);
+          break;
+        }
+        case prefix_t::L16: {
+          uint16_t size = v.size();
+          (*this)(size);
+          break;
+        }
+      }
+    }
+
+    for (int i = 0; i < v.size(); i++) {
+      if (remain.size() == 0) {
+        (*this)(v[i]);
+      } else {
+        unroll(v[i], remain);
+      }
+    }
+  }
+
+  template <class T>
+  void operator()(ArraySizePrefix<T> a) {
+    unroll(a.value, a.size_spec);
+  }
+
+  void operator()(StringSizePrefix a) {
+    std::cout << "field: StringSizePrefix" << std::endl;
+    switch (a.size_spec) {
+      case prefix_t::L8:
+        string<uint8_t>(a.value);
+        break;
+      case prefix_t::L16:
+        string<uint16_t>(a.value);
+        break;
+    }
   }
 
   template <class T>
@@ -88,9 +155,17 @@ class BinaryOutputCodec {
     integer(v, 8);
   }
 
+  void operator()(std::string& v) {
+    std::cout << "field: string" << std::endl;
+    string<uint8_t>(v);
+  }
+
   template <class T, std::size_t L>
   void operator()(std::array<T, L>& v) {
     std::cout << "field: std::array" << std::endl;
+    for (int i = 0; i < v.size(); i++) {
+      (*this)(v[i]);
+    }
   }
 
   /*
@@ -99,14 +174,19 @@ class BinaryOutputCodec {
   template <class T>
   void operator()(std::vector<T>& v) {
     std::cout << "field: vector" << std::endl;
-    vector<T, uint8_t>(v);
+    uint8_t size = v.size();
+    (*this)(size);
+    for (int i = 0; i < v.size(); i++) {
+      (*this)(v[i]);
+    }
   }
 
  private:
-  template <class T, class SizeType>
-  void vector(std::vector<T>& v) {
-    SizeType size = v.size();
+  template <class SizeType>
+  void string(std::string& v) {
+    SizeType size = v.length();
     (*this)(size);
+    _stream << v;
   }
 
   template <class T>

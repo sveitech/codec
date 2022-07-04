@@ -6,6 +6,7 @@
 #include <cereal/archives/binary.hpp>
 #include <cereal/archives/json.hpp>
 #include <cereal/types/array.hpp>
+#include <cereal/types/string.hpp>
 #include <cereal/types/vector.hpp>
 #include <cstdint>
 #include <string>
@@ -39,8 +40,9 @@ struct ExampleStruct {
   int64_t number_i64;
   Box box;
   std::string text;
+  std::string long_text;
   std::vector<uint8_t> vector;
-  std::vector<std::vector<uint32_t>> vector_nested;
+  std::vector<std::vector<uint8_t>> vector_nested;
   std::array<uint8_t, 10> array;
   std::vector<Box> vector_struct;
 };
@@ -59,18 +61,42 @@ void serialize(Archive& a, ExampleStruct& m) {
   a(m.number_i32);
   a(m.number_i64);
   a(m.box);
+  a(m.text);
+  a(codec::string(m.long_text, {codec::prefix_t::L16}));
   a(m.vector_nested);
-  a(codec::array(m.vector, {codec::array_t::L16}));
-  a(codec::array(m.vector_nested, {codec::array_t::L16, codec::array_t::L16}));
+  a(codec::array(m.vector, {codec::prefix_t::L16}));
+  a(codec::array(m.vector_nested,
+                 {codec::prefix_t::L16, codec::prefix_t::L16}));
   a(m.array);
+  a(m.vector_struct);
 }
 }  // namespace
 
 TEST(codec, custom_binary) {
   ExampleStruct msg;
+  msg.number_u8 = 1;
+  msg.number_u16 = 2;
+  msg.number_u32 = 3;
+  msg.number_u64 = 4;
+  msg.number_i8 = 5;
+  msg.number_i16 = 6;
+  msg.number_i32 = 7;
+  msg.number_i64 = 8;
+  msg.box.number = 9;
+  msg.box.nested_vector_array.push_back({1, 1, 1, 1, 1, 1, 1, 1});
+  msg.text = "Hello there";
+  msg.long_text = "Hi there some more";
 
-  msg.vector_nested.push_back({1, 2, 3});
-  msg.vector_nested.push_back({4, 5, 6});
+  msg.vector.push_back(1);
+  msg.vector.push_back(2);
+  msg.vector.push_back(3);
+
+  msg.vector_nested.push_back({8, 8, 8, 8});
+
+  for (int i = 0; i < msg.array.size(); i++) {
+    msg.array[i] = 20;
+  }
+  // msg.vector_nested.push_back({5, 5, 5, 5});
 
   std::stringstream ss(std::ios::binary | std::ios::out);
   codec::BinaryOutputCodec c(ss);
@@ -85,21 +111,22 @@ TEST(codec, custom_binary) {
   std::cout << std::endl;
 }
 
-TEST(codec, cerealArchive) {
-  ExampleStruct msg;
-  msg.vector_nested.push_back({1, 2, 3});
-  msg.vector_nested.push_back({4, 5, 6});
-  msg.vector.push_back(11);
-  msg.vector.push_back(12);
-  msg.vector.push_back(13);
+// TEST(codec, cerealArchive) {
+//   ExampleStruct msg;
+//   msg.vector_nested.push_back({1, 2, 3});
+//   msg.vector_nested.push_back({4, 5, 6});
+//   msg.vector.push_back(11);
+//   msg.vector.push_back(12);
+//   msg.vector.push_back(13);
+//   msg.text = "Some text";
 
-  std::stringstream ss;
+//   std::stringstream ss;
 
-  // Scope guarantees stream flush at end
-  {
-    cereal::JSONOutputArchive archive(ss);
-    archive(msg);
-  }
+//   // Scope guarantees stream flush at end
+//   {
+//     cereal::JSONOutputArchive archive(ss);
+//     archive(msg);
+//   }
 
-  std::cout << "Cereal: " << ss.str() << std::endl;
-}
+//   std::cout << "Cereal: " << ss.str() << std::endl;
+// }
